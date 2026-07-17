@@ -1,3 +1,4 @@
+import React from 'react';
 import type { Preview } from '@storybook/react';
 import '@fontsource-variable/inter';
 import '@cortex/tokens/tokens.css';
