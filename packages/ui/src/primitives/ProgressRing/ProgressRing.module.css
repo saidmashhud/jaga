@@ -1,0 +1,46 @@
+.root {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.svg {
+  display: block;
+}
+
+.track {
+  fill: none;
+  stroke: var(--color-border-subtle);
+}
+
+.indicator {
+  fill: none;
+  stroke-linecap: round;
+  transition: stroke-dashoffset var(--motion-slow) var(--easing-standard);
+}
+
+.spinning {
+  animation: ringSpin 900ms linear infinite;
+}
+
+@keyframes ringSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinning {
+    animation-duration: 2400ms;
+  }
+}
+
+.value {
+  position: absolute;
+  font-family: var(--font-family-base);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  user-select: none;
+}

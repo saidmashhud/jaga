@@ -1,0 +1,104 @@
+.root {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.glow {
+  position: absolute;
+  border-radius: var(--radius-round);
+  pointer-events: none;
+}
+
+.glowOuter {
+  width: calc(var(--size-node-core) * 2.4);
+  height: calc(var(--size-node-core) * 2.4);
+  background: radial-gradient(
+    circle,
+    rgba(118, 87, 255, 0.16),
+    rgba(53, 151, 255, 0.05) 55%,
+    transparent 72%
+  );
+}
+
+.glowMid {
+  width: calc(var(--size-node-core) * 1.55);
+  height: calc(var(--size-node-core) * 1.55);
+  background: radial-gradient(circle, rgba(118, 87, 255, 0.24), transparent 70%);
+}
+
+.core {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: var(--size-node-core);
+  height: var(--size-node-core);
+  border-radius: var(--radius-round);
+  border: 1.5px solid rgba(155, 138, 255, 0.55);
+  background:
+    radial-gradient(circle at 34% 26%, rgba(155, 123, 255, 0.32), transparent 58%),
+    radial-gradient(circle at 50% 55%, rgba(24, 26, 58, 0.98), rgba(13, 14, 34, 0.99));
+  box-shadow:
+    var(--glow-violet),
+    inset 0 0 26px rgba(118, 87, 255, 0.22);
+  font-family: var(--font-family-base);
+}
+
+.title {
+  font-size: var(--text-h2-size);
+  line-height: var(--text-h2-line);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.subtitle {
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line);
+  color: #b9a8ff;
+}
+
+.pulse .glowMid {
+  animation: corePulse 3200ms var(--easing-standard) infinite;
+}
+
+.pulse .core {
+  animation: coreBreath 3200ms var(--easing-standard) infinite;
+}
+
+@keyframes corePulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+}
+
+@keyframes coreBreath {
+  0%,
+  100% {
+    box-shadow:
+      var(--glow-violet),
+      inset 0 0 26px rgba(118, 87, 255, 0.22);
+  }
+  50% {
+    box-shadow:
+      0 0 44px rgba(118, 87, 255, 0.55),
+      inset 0 0 30px rgba(118, 87, 255, 0.3);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse .glowMid,
+  .pulse .core {
+    animation: none;
+  }
+}

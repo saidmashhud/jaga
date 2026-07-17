@@ -1,0 +1,48 @@
+.root {
+  --event-color: var(--color-accent-blue);
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: var(--radius-round);
+  background: var(--event-color);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--event-color) 60%, transparent);
+  cursor: default;
+  transition: transform var(--motion-fast) var(--easing-standard);
+}
+
+.root:hover,
+.root:focus-visible {
+  transform: translate(-50%, -50%) scale(1.35);
+}
+
+.root:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.intensity1 {
+  width: 6px;
+  height: 6px;
+}
+
+.intensity2 {
+  width: 9px;
+  height: 9px;
+}
+
+.intensity3 {
+  width: 12px;
+  height: 12px;
+}
+
+.future {
+  background: transparent;
+  border: 1.5px solid var(--event-color);
+  box-shadow: none;
+}
+
+.selected {
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--event-color) 20%, transparent),
+    0 0 10px color-mix(in srgb, var(--event-color) 70%, transparent);
+}

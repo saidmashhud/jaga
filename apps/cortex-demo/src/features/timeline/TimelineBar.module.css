@@ -1,0 +1,11 @@
+.root {
+  flex-shrink: 0;
+  margin: 0 var(--space-6);
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+@media (max-width: 1439px) {
+  .root {
+    margin: 0 var(--space-4);
+  }
+}

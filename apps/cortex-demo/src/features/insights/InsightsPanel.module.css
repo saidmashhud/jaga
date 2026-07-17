@@ -1,0 +1,56 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  border-left: 1px solid var(--color-border-subtle);
+  background: linear-gradient(200deg, rgba(13, 20, 36, 0.72), rgba(9, 14, 27, 0.55));
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+}
+
+.scroll {
+  flex: 1;
+}
+
+.inner {
+  padding: var(--space-5);
+}
+
+.selectedCard {
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-elevated);
+  box-shadow: var(--shadow-surface);
+  animation: cardIn var(--motion-slow) var(--easing-standard);
+}
+
+@keyframes cardIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .selectedCard {
+    animation: none;
+  }
+}
+
+.lenses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+@media (max-width: 1439px) {
+  .inner {
+    padding: var(--space-4);
+  }
+}

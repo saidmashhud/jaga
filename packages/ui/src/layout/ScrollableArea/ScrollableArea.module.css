@@ -1,0 +1,38 @@
+.root {
+  min-height: 0;
+  min-width: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
+}
+
+.vertical {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.horizontal {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.both {
+  overflow: auto;
+}
+
+.root::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.root::-webkit-scrollbar-thumb {
+  background: var(--color-border-default);
+  border-radius: var(--radius-round);
+}
+
+.root::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-strong);
+}
+
+.root::-webkit-scrollbar-track {
+  background: transparent;
+}

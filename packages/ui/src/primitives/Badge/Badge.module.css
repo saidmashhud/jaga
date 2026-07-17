@@ -1,0 +1,57 @@
+.root {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-round);
+  border: 1px solid;
+  font-family: var(--font-family-base);
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-round);
+  background: currentColor;
+}
+
+.neutral {
+  color: var(--color-text-secondary);
+  background: rgba(135, 154, 194, 0.1);
+  border-color: var(--color-border-subtle);
+}
+
+.positive {
+  color: var(--color-state-stable);
+  background: var(--color-state-stable-soft);
+  border-color: rgba(117, 237, 111, 0.3);
+}
+
+.info {
+  color: var(--color-accent-blue);
+  background: var(--color-state-working-soft);
+  border-color: rgba(53, 151, 255, 0.32);
+}
+
+.warning {
+  color: var(--color-state-attention);
+  background: var(--color-state-attention-soft);
+  border-color: rgba(255, 201, 74, 0.34);
+}
+
+.danger {
+  color: var(--color-state-risk);
+  background: var(--color-state-risk-soft);
+  border-color: rgba(255, 106, 74, 0.36);
+}
+
+.ai {
+  color: var(--color-state-ai);
+  background: var(--color-state-ai-soft);
+  border-color: rgba(155, 123, 255, 0.38);
+}

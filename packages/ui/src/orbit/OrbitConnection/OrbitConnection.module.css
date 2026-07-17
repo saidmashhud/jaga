@@ -1,0 +1,50 @@
+.root {
+  pointer-events: none;
+  transition: opacity var(--motion-scene) var(--easing-standard);
+}
+
+.dimmed {
+  opacity: 0.1;
+}
+
+.line {
+  fill: none;
+  stroke-linecap: round;
+  opacity: 0.75;
+  transition:
+    opacity var(--motion-slow) var(--easing-standard),
+    stroke-width var(--motion-normal) var(--easing-standard);
+}
+
+.selected {
+  opacity: 1;
+}
+
+.halo {
+  fill: none;
+  stroke-linecap: round;
+  opacity: 0.18;
+  filter: blur(3px);
+}
+
+.dashed {
+  stroke-dasharray: 4 8;
+}
+
+.animated {
+  stroke-dasharray: 7 11;
+  animation: connectionFlow 1600ms linear infinite;
+}
+
+@keyframes connectionFlow {
+  to {
+    stroke-dashoffset: -36;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animated {
+    animation: none;
+    stroke-dasharray: 4 8;
+  }
+}

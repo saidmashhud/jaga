@@ -1,0 +1,197 @@
+/**
+ * Cortex design tokens.
+ * Dark theme is the product default; the light block below is experimental
+ * and exists so the Storybook theme switcher exercises the token contract.
+ */
+
+:root {
+  /* ---------------------------------- color: background */
+  --color-bg-root: #050814;
+  --color-bg-canvas: #070b18;
+  --color-bg-surface: rgba(13, 20, 36, 0.78);
+  --color-bg-surface-hover: rgba(19, 29, 50, 0.92);
+  --color-bg-elevated: rgba(18, 25, 45, 0.96);
+
+  /* ---------------------------------- color: border */
+  --color-border-subtle: rgba(135, 154, 194, 0.12);
+  --color-border-default: rgba(135, 154, 194, 0.22);
+  --color-border-strong: rgba(156, 170, 220, 0.36);
+
+  /* ---------------------------------- color: text */
+  --color-text-primary: #f4f7ff;
+  --color-text-secondary: #9da8c1;
+  --color-text-tertiary: #66718c;
+  --color-text-disabled: #454e64;
+  --color-text-on-accent: #0a0e1d;
+
+  /* ---------------------------------- color: accent */
+  --color-accent-violet: #7657ff;
+  --color-accent-blue: #3597ff;
+  --color-accent-cyan: #37d9ff;
+  --color-accent-green: #75ed6f;
+  --color-accent-yellow: #ffc94a;
+  --color-accent-orange: #ff7a45;
+  --color-accent-red: #ff5b5b;
+
+  /* ---------------------------------- color: semantic state */
+  --color-state-stable: #75ed6f;
+  --color-state-working: #3597ff;
+  --color-state-attention: #ffc94a;
+  --color-state-risk: #ff6a4a;
+  --color-state-paused: #5b6b8f;
+  --color-state-decision: #37d9ff;
+  --color-state-ai: #9b7bff;
+
+  /* soft translucent fills matched to each state */
+  --color-state-stable-soft: rgba(117, 237, 111, 0.14);
+  --color-state-working-soft: rgba(53, 151, 255, 0.14);
+  --color-state-attention-soft: rgba(255, 201, 74, 0.14);
+  --color-state-risk-soft: rgba(255, 106, 74, 0.16);
+  --color-state-paused-soft: rgba(91, 107, 143, 0.16);
+  --color-state-decision-soft: rgba(55, 217, 255, 0.14);
+  --color-state-ai-soft: rgba(155, 123, 255, 0.16);
+
+  /* ---------------------------------- typography */
+  --font-family-base: "Inter Variable", Inter, ui-sans-serif, system-ui,
+    -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  --text-display-size: 32px;
+  --text-display-line: 40px;
+  --text-display-weight: 600;
+  --text-h1-size: 24px;
+  --text-h1-line: 32px;
+  --text-h1-weight: 600;
+  --text-h2-size: 20px;
+  --text-h2-line: 28px;
+  --text-h2-weight: 600;
+  --text-h3-size: 16px;
+  --text-h3-line: 24px;
+  --text-h3-weight: 600;
+  --text-body-lg-size: 16px;
+  --text-body-lg-line: 24px;
+  --text-body-lg-weight: 400;
+  --text-body-size: 14px;
+  --text-body-line: 20px;
+  --text-body-weight: 400;
+  --text-body-md-size: 14px;
+  --text-body-md-line: 20px;
+  --text-body-md-weight: 500;
+  --text-caption-size: 12px;
+  --text-caption-line: 16px;
+  --text-caption-weight: 400;
+  --text-overline-size: 11px;
+  --text-overline-line: 16px;
+  --text-overline-weight: 600;
+  --text-overline-tracking: 0.08em;
+
+  /* ---------------------------------- spacing (4px base scale) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* ---------------------------------- radius */
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-round: 999px;
+
+  /* ---------------------------------- elevation & glow */
+  --shadow-surface: 0 12px 40px rgba(0, 0, 0, 0.28);
+  --shadow-raised: 0 18px 56px rgba(0, 0, 0, 0.4);
+  --shadow-overlay: 0 24px 80px rgba(0, 0, 0, 0.55);
+
+  --glow-violet: 0 0 28px rgba(118, 87, 255, 0.42);
+  --glow-blue: 0 0 24px rgba(53, 151, 255, 0.34);
+  --glow-cyan: 0 0 24px rgba(55, 217, 255, 0.34);
+  --glow-green: 0 0 24px rgba(117, 237, 111, 0.3);
+  --glow-warning: 0 0 24px rgba(255, 201, 74, 0.3);
+  --glow-risk: 0 0 24px rgba(255, 106, 74, 0.32);
+  --glow-ai: 0 0 32px rgba(155, 123, 255, 0.4);
+
+  /* ---------------------------------- opacity */
+  --opacity-dimmed: 0.32;
+  --opacity-muted: 0.6;
+  --opacity-disabled: 0.45;
+
+  /* ---------------------------------- z-index layers */
+  --layer-canvas: 0;
+  --layer-scene: 10;
+  --layer-panel: 20;
+  --layer-header: 30;
+  --layer-overlay: 40;
+  --layer-tooltip: 50;
+  --layer-toast: 60;
+
+  /* ---------------------------------- motion */
+  --motion-fast: 120ms;
+  --motion-normal: 200ms;
+  --motion-slow: 360ms;
+  --motion-scene: 600ms;
+  --easing-standard: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* ---------------------------------- component sizes */
+  --size-control-sm: 28px;
+  --size-control-md: 36px;
+  --size-control-lg: 44px;
+  --size-node-sm: 72px;
+  --size-node-md: 96px;
+  --size-node-lg: 118px;
+  --size-node-core: 148px;
+  --size-rail: 76px;
+  --size-rail-compact: 56px;
+  --size-panel: 356px;
+  --size-panel-compact: 316px;
+  --size-header: 64px;
+
+  /* ---------------------------------- focus ring */
+  --focus-ring: 0 0 0 2px var(--color-bg-root), 0 0 0 4px var(--color-accent-cyan);
+
+  color-scheme: dark;
+}
+
+/* Experimental light theme — token contract only, not a shipped product theme. */
+:root[data-theme='light'] {
+  --color-bg-root: #eef1f9;
+  --color-bg-canvas: #e7ebf6;
+  --color-bg-surface: rgba(255, 255, 255, 0.82);
+  --color-bg-surface-hover: rgba(255, 255, 255, 0.95);
+  --color-bg-elevated: rgba(255, 255, 255, 0.98);
+
+  --color-border-subtle: rgba(35, 48, 80, 0.1);
+  --color-border-default: rgba(35, 48, 80, 0.18);
+  --color-border-strong: rgba(35, 48, 80, 0.32);
+
+  --color-text-primary: #10162b;
+  --color-text-secondary: #46536f;
+  --color-text-tertiary: #7a86a2;
+  --color-text-disabled: #aab3c9;
+  --color-text-on-accent: #ffffff;
+
+  --shadow-surface: 0 12px 40px rgba(23, 35, 68, 0.14);
+  --shadow-raised: 0 18px 56px rgba(23, 35, 68, 0.18);
+  --shadow-overlay: 0 24px 80px rgba(23, 35, 68, 0.24);
+
+  --focus-ring: 0 0 0 2px var(--color-bg-root), 0 0 0 4px var(--color-accent-blue);
+
+  color-scheme: light;
+}
+
+/* Reduced motion: collapse durations so transitions finish instantly.
+   Infinite/looping animations are additionally gated per-component. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast: 0.01ms;
+    --motion-normal: 0.01ms;
+    --motion-slow: 0.01ms;
+    --motion-scene: 0.01ms;
+  }
+}

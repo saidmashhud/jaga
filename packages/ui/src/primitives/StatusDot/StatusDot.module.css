@@ -1,0 +1,72 @@
+.root {
+  --dot-color: var(--color-text-tertiary);
+  display: inline-block;
+  flex-shrink: 0;
+  border-radius: var(--radius-round);
+  background: var(--dot-color);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--dot-color) 60%, transparent);
+}
+
+.sm {
+  width: 6px;
+  height: 6px;
+}
+
+.md {
+  width: 8px;
+  height: 8px;
+}
+
+.lg {
+  width: 10px;
+  height: 10px;
+}
+
+.stable {
+  --dot-color: var(--color-state-stable);
+}
+
+.working {
+  --dot-color: var(--color-state-working);
+}
+
+.attention {
+  --dot-color: var(--color-state-attention);
+}
+
+.risk {
+  --dot-color: var(--color-state-risk);
+}
+
+.paused {
+  --dot-color: var(--color-state-paused);
+  box-shadow: none;
+}
+
+.decision {
+  --dot-color: var(--color-state-decision);
+}
+
+.ai {
+  --dot-color: var(--color-state-ai);
+}
+
+.pulse {
+  animation: statusPulse 2200ms var(--easing-standard) infinite;
+}
+
+@keyframes statusPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--dot-color) 45%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--dot-color) 0%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse {
+    animation: none;
+  }
+}

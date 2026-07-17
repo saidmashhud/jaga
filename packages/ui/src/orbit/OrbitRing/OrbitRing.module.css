@@ -1,0 +1,10 @@
+.root {
+  fill: none;
+  stroke: rgba(135, 154, 194, 0.1);
+  stroke-width: 1;
+}
+
+.dashed {
+  stroke-dasharray: 2 10;
+  stroke-linecap: round;
+}

@@ -1,0 +1,12 @@
+.root {
+  display: flex;
+  min-width: 0;
+}
+
+.vertical {
+  flex-direction: column;
+}
+
+.horizontal {
+  flex-direction: row;
+}

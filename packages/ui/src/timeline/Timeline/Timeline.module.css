@@ -1,0 +1,169 @@
+.root {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-2) var(--space-4);
+  font-family: var(--font-family-base);
+}
+
+.track {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 56px;
+}
+
+.line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  transform: translateY(-50%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--color-border-default) 12%,
+    var(--color-border-strong) 50%,
+    var(--color-border-default) 88%,
+    transparent
+  );
+}
+
+.events {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 50%;
+  pointer-events: auto;
+}
+
+.points {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.point {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: none;
+  background: none;
+  color: var(--color-text-tertiary);
+  font-family: inherit;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: color var(--motion-fast) var(--easing-standard);
+}
+
+.point:hover {
+  color: var(--color-text-secondary);
+}
+
+.point:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-round);
+  background: var(--color-border-strong);
+  transition:
+    background var(--motion-normal) var(--easing-standard),
+    box-shadow var(--motion-normal) var(--easing-standard),
+    transform var(--motion-normal) var(--easing-standard);
+}
+
+.pointLabel {
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line);
+  white-space: nowrap;
+}
+
+.pointFuture .dot {
+  background: transparent;
+  border: 1.5px solid var(--color-border-strong);
+}
+
+.pointActive {
+  color: var(--color-text-primary);
+}
+
+.pointActive .dot {
+  background: var(--color-accent-violet);
+  transform: scale(1.3);
+  box-shadow: var(--glow-violet);
+  border: none;
+}
+
+/* the «now» beacon */
+.pointNow .dot {
+  background: var(--color-accent-cyan);
+  border: none;
+  box-shadow: 0 0 12px rgba(55, 217, 255, 0.55);
+}
+
+.pointNow {
+  color: var(--color-accent-cyan);
+}
+
+.pointNow.pointActive .dot {
+  background: var(--color-accent-cyan);
+  box-shadow:
+    0 0 0 5px rgba(55, 217, 255, 0.14),
+    0 0 14px rgba(55, 217, 255, 0.6);
+}
+
+.pointNow.pointActive {
+  color: var(--color-accent-cyan);
+}
+
+/* period switch */
+.periods {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--radius-round);
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-surface);
+}
+
+.period {
+  height: 26px;
+  padding: 0 var(--space-3);
+  border: none;
+  border-radius: var(--radius-round);
+  background: transparent;
+  color: var(--color-text-tertiary);
+  font-family: inherit;
+  font-size: var(--text-caption-size);
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background var(--motion-fast) var(--easing-standard),
+    color var(--motion-fast) var(--easing-standard);
+}
+
+.period:hover {
+  color: var(--color-text-secondary);
+}
+
+.period:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.periodActive {
+  background: var(--color-bg-surface-hover);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-default);
+}

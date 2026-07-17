@@ -1,0 +1,15 @@
+.root {
+  flex-shrink: 0;
+  background: var(--color-border-subtle);
+}
+
+.horizontal {
+  height: 1px;
+  width: 100%;
+}
+
+.vertical {
+  width: 1px;
+  align-self: stretch;
+  min-height: 16px;
+}

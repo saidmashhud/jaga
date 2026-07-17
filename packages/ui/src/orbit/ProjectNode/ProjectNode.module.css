@@ -1,0 +1,273 @@
+.root {
+  --node-size: var(--size-node-md);
+  --node-color: var(--color-text-tertiary);
+  --node-soft: rgba(135, 154, 194, 0.12);
+  --node-glow: none;
+
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  width: max-content;
+  max-width: 168px;
+  transition: opacity var(--motion-scene) var(--easing-standard);
+}
+
+.sm {
+  --node-size: var(--size-node-sm);
+}
+
+.md {
+  --node-size: var(--size-node-md);
+}
+
+.lg {
+  --node-size: var(--size-node-lg);
+}
+
+/* status palettes */
+.stable {
+  --node-color: var(--color-state-stable);
+  --node-soft: var(--color-state-stable-soft);
+  --node-glow: var(--glow-green);
+}
+
+.working {
+  --node-color: var(--color-state-working);
+  --node-soft: var(--color-state-working-soft);
+  --node-glow: var(--glow-blue);
+}
+
+.attention {
+  --node-color: var(--color-state-attention);
+  --node-soft: var(--color-state-attention-soft);
+  --node-glow: var(--glow-warning);
+}
+
+.risk {
+  --node-color: var(--color-state-risk);
+  --node-soft: var(--color-state-risk-soft);
+  --node-glow: var(--glow-risk);
+}
+
+.paused {
+  --node-color: var(--color-state-paused);
+  --node-soft: var(--color-state-paused-soft);
+  --node-glow: none;
+}
+
+.decision {
+  --node-color: var(--color-state-decision);
+  --node-soft: var(--color-state-decision-soft);
+  --node-glow: var(--glow-cyan);
+}
+
+.circle {
+  position: relative;
+  width: var(--node-size);
+  height: var(--node-size);
+  border-radius: var(--radius-round);
+  border: 1.5px solid color-mix(in srgb, var(--node-color) 55%, transparent);
+  background:
+    radial-gradient(
+      circle at 32% 28%,
+      color-mix(in srgb, var(--node-color) 16%, transparent),
+      transparent 62%
+    ),
+    radial-gradient(circle at 50% 50%, rgba(18, 25, 45, 0.92), rgba(10, 15, 30, 0.96));
+  color: var(--color-text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition:
+    transform var(--motion-normal) var(--easing-standard),
+    border-color var(--motion-normal) var(--easing-standard),
+    box-shadow var(--motion-slow) var(--easing-standard);
+}
+
+.paused .circle {
+  border-style: dashed;
+  color: var(--color-text-secondary);
+}
+
+.halo {
+  position: absolute;
+  inset: -14px;
+  border-radius: var(--radius-round);
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--node-color) 14%, transparent),
+    transparent 70%
+  );
+  opacity: 0.55;
+  transition: opacity var(--motion-slow) var(--easing-standard);
+  pointer-events: none;
+}
+
+.inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-family-base);
+  font-size: calc(var(--node-size) * 0.3);
+  font-weight: 600;
+}
+
+.inner > svg {
+  width: calc(var(--node-size) * 0.34);
+  height: calc(var(--node-size) * 0.34);
+  color: color-mix(in srgb, var(--node-color) 75%, var(--color-text-primary));
+}
+
+.statusDot {
+  position: absolute;
+  top: 6%;
+  right: 6%;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-round);
+  background: var(--node-color);
+  border: 2px solid var(--color-bg-canvas);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--node-color) 65%, transparent);
+}
+
+/* interactions */
+.circle:hover {
+  transform: scale(1.05);
+  border-color: color-mix(in srgb, var(--node-color) 85%, transparent);
+  box-shadow: var(--node-glow);
+}
+
+.circle:hover .halo,
+.circle:focus-visible .halo {
+  opacity: 1;
+}
+
+.circle:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring), var(--node-glow);
+}
+
+.selected .circle {
+  transform: scale(1.07);
+  border-width: 2px;
+  border-color: var(--node-color);
+  box-shadow:
+    var(--node-glow),
+    0 0 0 5px color-mix(in srgb, var(--node-color) 14%, transparent);
+}
+
+.dimmed {
+  opacity: var(--opacity-dimmed);
+}
+
+.dimmed .circle {
+  box-shadow: none;
+}
+
+/* recently updated: short highlight pulse (finite, not looping) */
+.updated .circle {
+  animation: nodeUpdated 1400ms var(--easing-standard) 2;
+}
+
+.updated .meta::after {
+  content: 'обновлено';
+  display: inline-block;
+  margin-top: 2px;
+  font-size: 10px;
+  line-height: 12px;
+  color: var(--color-accent-cyan);
+}
+
+@keyframes nodeUpdated {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--node-color) 0%, transparent);
+  }
+  40% {
+    box-shadow: 0 0 0 10px color-mix(in srgb, var(--node-color) 12%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .updated .circle {
+    animation: none;
+  }
+
+  .circle:hover,
+  .selected .circle {
+    transform: none;
+  }
+}
+
+/* meta block under the circle */
+.meta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  text-align: center;
+  font-family: var(--font-family-base);
+  pointer-events: none;
+}
+
+.title {
+  font-size: var(--text-body-md-size);
+  line-height: var(--text-body-md-line);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.subtitle {
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line);
+  color: var(--color-text-tertiary);
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statusText {
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 500;
+  color: color-mix(in srgb, var(--node-color) 82%, var(--color-text-primary));
+}
+
+/* built-in hover/focus tooltip */
+.tooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: var(--layer-tooltip);
+  width: max-content;
+  max-width: 220px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-elevated);
+  box-shadow: var(--shadow-raised);
+  color: var(--color-text-secondary);
+  font-family: var(--font-family-base);
+  font-size: var(--text-caption-size);
+  line-height: var(--text-caption-line);
+  text-align: left;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--motion-normal) var(--easing-standard);
+}
+
+.root:hover .tooltip,
+.circle:focus-visible ~ .tooltip {
+  opacity: 1;
+}
+
+.dimmed:hover .tooltip {
+  opacity: 0;
+}

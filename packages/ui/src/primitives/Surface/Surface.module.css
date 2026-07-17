@@ -1,0 +1,56 @@
+.root {
+  position: relative;
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-surface);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  transition:
+    background var(--motion-normal) var(--easing-standard),
+    border-color var(--motion-normal) var(--easing-standard),
+    box-shadow var(--motion-normal) var(--easing-standard),
+    transform var(--motion-normal) var(--easing-standard);
+}
+
+.base {
+  box-shadow: var(--shadow-surface);
+}
+
+.raised {
+  background: var(--color-bg-elevated);
+  border-color: var(--color-border-default);
+  box-shadow: var(--shadow-raised);
+}
+
+.overlay {
+  background: var(--color-bg-elevated);
+  border-color: var(--color-border-default);
+  box-shadow: var(--shadow-overlay);
+  -webkit-backdrop-filter: blur(28px);
+  backdrop-filter: blur(28px);
+}
+
+.interactive {
+  cursor: pointer;
+}
+
+.interactive:hover {
+  background: var(--color-bg-surface-hover);
+  border-color: var(--color-border-default);
+}
+
+.interactive:active {
+  transform: translateY(1px);
+}
+
+.interactive:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.selected {
+  border-color: var(--color-border-strong);
+  box-shadow:
+    var(--shadow-surface),
+    inset 0 0 0 1px var(--color-border-strong),
+    0 0 20px rgba(118, 87, 255, 0.16);
+}

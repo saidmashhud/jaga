@@ -1,0 +1,11 @@
+body {
+  margin: 0;
+  background: var(--color-bg-root);
+  color: var(--color-text-primary);
+  font-family: var(--font-family-base);
+  -webkit-font-smoothing: antialiased;
+}
+
+.sb-show-main.sb-main-centered #storybook-root {
+  padding: 32px;
+}
