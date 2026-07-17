@@ -6,6 +6,8 @@ export type NavigationMode = 'orbit' | 'focus' | 'inside' | 'decision' | 'settin
 export interface CortexState {
   navigationMode: NavigationMode;
   selectedProjectId: string | null;
+  /** Project whose portal world the camera has entered (§6.2, depth level 2). */
+  enteredProjectId: string | null;
   hoveredProjectId: string | null;
   activeLensId: string | null;
   timelinePointId: TimelinePointId;
@@ -29,6 +31,7 @@ export interface CortexState {
 export const initialCortexState: CortexState = {
   navigationMode: 'orbit',
   selectedProjectId: null,
+  enteredProjectId: null,
   hoveredProjectId: null,
   activeLensId: null,
   timelinePointId: 'now',
@@ -50,6 +53,8 @@ export const initialCortexState: CortexState = {
 export type CortexAction =
   | { type: 'select-project'; id: string | null }
   | { type: 'toggle-project'; id: string }
+  | { type: 'enter-project'; id: string }
+  | { type: 'exit-project' }
   | { type: 'hover-project'; id: string | null }
   | { type: 'set-lens'; id: string | null }
   | { type: 'set-timeline-point'; id: TimelinePointId }
@@ -78,6 +83,10 @@ export function cortexReducer(state: CortexState, action: CortexAction): CortexS
         ...state,
         selectedProjectId: state.selectedProjectId === action.id ? null : action.id,
       };
+    case 'enter-project':
+      return { ...state, enteredProjectId: action.id, selectedProjectId: action.id };
+    case 'exit-project':
+      return { ...state, enteredProjectId: null };
     case 'hover-project':
       return { ...state, hoveredProjectId: action.id };
     case 'set-lens':
@@ -127,7 +136,12 @@ export function cortexReducer(state: CortexState, action: CortexAction): CortexS
     case 'dismiss-toast':
       return { ...state, toast: null };
     case 'clear-selection':
-      return { ...state, selectedProjectId: null, hoveredProjectId: null };
+      return {
+        ...state,
+        selectedProjectId: null,
+        hoveredProjectId: null,
+        enteredProjectId: null,
+      };
     default:
       return state;
   }

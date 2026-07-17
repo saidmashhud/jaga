@@ -84,13 +84,30 @@ export function InsightsPanel() {
                 <Text variant="body" color="secondary">
                   {selectedProject.summary}
                 </Text>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => dispatch({ type: 'clear-selection' })}
-                >
-                  Снять выбор
-                </Button>
+                <Stack direction="horizontal" gap={2}>
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={() =>
+                      dispatch(
+                        state.enteredProjectId === selectedProject.id
+                          ? { type: 'exit-project' }
+                          : { type: 'enter-project', id: selectedProject.id },
+                      )
+                    }
+                  >
+                    {state.enteredProjectId === selectedProject.id
+                      ? 'Выйти из проекта'
+                      : 'Войти в проект'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => dispatch({ type: 'clear-selection' })}
+                  >
+                    Снять выбор
+                  </Button>
+                </Stack>
               </Stack>
             </section>
           )}

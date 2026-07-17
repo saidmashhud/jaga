@@ -1,0 +1,33 @@
+.loading {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  min-height: 0;
+  background: var(--color-bg-canvas);
+  color: var(--color-text-tertiary);
+  font-family: var(--font-family-base);
+  font-size: var(--text-body-size);
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-round);
+  border: 2px solid var(--color-border-strong);
+  border-top-color: var(--color-accent-violet);
+  animation: spin 700ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2400ms;
+  }
+}

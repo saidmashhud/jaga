@@ -10,7 +10,7 @@ import { AppShell, NavigationRail, NavigationRailItem } from '@cortex/ui';
 import { AppHeader } from '../../features/header/AppHeader';
 import { ComposerBar } from '../../features/composer/ComposerBar';
 import { InsightsPanel } from '../../features/insights/InsightsPanel';
-import { OrbitScene } from '../../features/orbit/OrbitScene';
+import { OrbitWorkspace } from '../../features/orbit/OrbitWorkspace';
 import { TimelineBar } from '../../features/timeline/TimelineBar';
 import { Toast } from '../../features/toast/Toast';
 import { useCortex } from '../../state/CortexProvider';
@@ -32,19 +32,22 @@ const navItems: Array<{
 export function OrbitPage() {
   const { state, dispatch, setNavigationMode } = useCortex();
 
-  // Global Escape: close the overlay panel first, then clear scene selection.
+  // Global Escape unwinds one level of depth at a time:
+  // overlay panel → portal world → scene selection.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       if (state.asideOpen) {
         dispatch({ type: 'set-aside-open', value: false });
+      } else if (state.enteredProjectId) {
+        dispatch({ type: 'exit-project' });
       } else {
         dispatch({ type: 'clear-selection' });
       }
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [state.asideOpen, dispatch]);
+  }, [state.asideOpen, state.enteredProjectId, dispatch]);
 
   return (
     <>
@@ -69,7 +72,7 @@ export function OrbitPage() {
         onAsideClose={() => dispatch({ type: 'set-aside-open', value: false })}
         composer={<ComposerBar />}
       >
-        <OrbitScene />
+        <OrbitWorkspace />
         <TimelineBar />
       </AppShell>
       <Toast />

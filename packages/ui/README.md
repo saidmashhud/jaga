@@ -26,6 +26,26 @@ import { Button, Surface, ProjectNode } from '@cortex/ui';
 | insights | `FocusTaskCard`, `ActivityItem`, `RecommendationCard`, `LensChip` |
 | timeline | `Timeline`, `TimelineEvent` |
 | composer | `ContextComposer` |
+| orbit3d ¹ | `OrbitScene3D`, `ProjectSphere`, `UserCore3D`, `Connection3D`, `ConnectionLabel3D`, `OrbitRing3D`, `PortalCard`, `InsightPanel3D`, `SceneEffects`, `useSceneCapabilities` |
+
+¹ Отдельная точка входа `@cortex/ui/orbit3d` — тянет three + drei + rapier (~1.1 МБ gzip). Импортируйте только лениво. Для детекта возможностей есть узкий вход `@cortex/ui/orbit3d/capabilities`, свободный от three.
+
+## 3D-сцена (orbit3d)
+
+```tsx
+const Scene = lazy(() => import('./Scene3D'));
+const { webgl, reducedMotion, quality, dpr } = useSceneCapabilities();
+if (!webgl || reducedMotion) return <SvgScene />;   // фолбэк обязателен
+```
+
+Правила слоя:
+
+- **WebGL не читает CSS-переменные.** Все цвета сцены берутся из `scene-tokens.ts` (мост к `rawColors` из `@cortex/tokens`) — не хардкодьте цвет в материале.
+- **Узел — это контрол, а не декорация.** Не добавляйте в сцену коллайдер под курсором (как в ballpit-демо pmndrs): он физически выталкивает узел из-под клика.
+- **Физика не должна ломать раскладку.** Тела притягиваются пружиной к моковой координате из `Project.position`; движение по оси камеры отключено.
+- **Подписи — DOM (`<Html>`), а не 3D-текст.** Это то, что сохраняет клавиатуру и screen reader; `<canvas>` помечен `aria-hidden`.
+- **Ровно одна сцена в DOM.** Два рендерера одновременно = две кнопки с одинаковым доступным именем.
+- **Эмиссия низкая.** Bloom её умножает; пересвеченный узел читается как «белый» и теряет статус-цвет (§6.3).
 
 ## Правила использования
 
