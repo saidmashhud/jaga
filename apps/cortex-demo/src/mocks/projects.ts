@@ -4,8 +4,13 @@ const HOUR = 3_600_000;
 const now = Date.now();
 
 /**
- * Scene coordinates live in the 1200×800 logical space of OrbitCanvas,
- * user core at (600, 400). Positions are mock — no physics engine in stage 1.
+ * Scene coordinates live in the 1200×800 logical space of OrbitCanvas, with the
+ * user core at (600, 400, 0). Positions are authored, not simulated.
+ *
+ * `z` is the attention axis: +z is toward the viewer. A project that needs a
+ * decision sits in your face; a paused one is pushed far back. That way the
+ * §22 question — "what needs me right now?" — is answered by depth before any
+ * text is read, and the answer survives the camera being rotated.
  */
 export const projects: Project[] = [
   {
@@ -16,7 +21,7 @@ export const projects: Project[] = [
     icon: 'network',
     status: 'stable',
     statusLabel: 'Стабильно',
-    position: { x: 300, y: 220 },
+    position: { x: 300, y: 220, z: -170 },
     size: 'lg',
     updatedAt: new Date(now - 2 * HOUR).toISOString(),
     summary:
@@ -30,7 +35,7 @@ export const projects: Project[] = [
     icon: 'flame',
     status: 'paused',
     statusLabel: 'На паузе',
-    position: { x: 890, y: 175 },
+    position: { x: 890, y: 175, z: -300 },
     size: 'sm',
     updatedAt: new Date(now - 9 * 24 * HOUR).toISOString(),
     summary:
@@ -44,7 +49,7 @@ export const projects: Project[] = [
     icon: 'car',
     status: 'risk',
     statusLabel: 'Риск',
-    position: { x: 975, y: 450 },
+    position: { x: 975, y: 450, z: 150 },
     size: 'md',
     updatedAt: new Date(now - 5 * HOUR).toISOString(),
     summary:
@@ -58,7 +63,7 @@ export const projects: Project[] = [
     icon: 'coffee',
     status: 'attention',
     statusLabel: 'Требует внимания',
-    position: { x: 285, y: 560 },
+    position: { x: 285, y: 560, z: 60 },
     size: 'md',
     updatedAt: new Date(now - 26 * HOUR).toISOString(),
     summary:
@@ -72,7 +77,7 @@ export const projects: Project[] = [
     icon: 'code',
     status: 'working',
     statusLabel: 'В работе',
-    position: { x: 585, y: 135 },
+    position: { x: 585, y: 135, z: -40 },
     size: 'sm',
     updatedAt: new Date(now - 3 * HOUR).toISOString(),
     summary:
@@ -86,7 +91,7 @@ export const projects: Project[] = [
     icon: 'tag',
     status: 'decision',
     statusLabel: 'Требует решения',
-    position: { x: 830, y: 630 },
+    position: { x: 830, y: 630, z: 260 },
     size: 'lg',
     updatedAt: new Date(now - 1 * HOUR).toISOString(),
     summary:

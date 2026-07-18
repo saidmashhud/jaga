@@ -105,12 +105,31 @@ export function OrbitScene3DView({
         quality={quality}
         dpr={dpr}
         reducedMotion={reducedMotion}
+        // let the camera settle for inspection once something is in focus
+        autoRotate={!state.selectedProjectId && !state.enteredProjectId}
         onClearSelection={() => dispatch({ type: 'clear-selection' })}
         className={styles.canvas}
       >
-        <OrbitRing3D radius={4.2} reducedMotion={reducedMotion} />
-        <OrbitRing3D radius={6.6} opacity={0.08} spin={-0.014} reducedMotion={reducedMotion} />
-        <OrbitRing3D radius={9.1} opacity={0.05} spin={0.008} reducedMotion={reducedMotion} />
+        {/* rings sit on different planes so the orbits form a volume, not a stack */}
+        <OrbitRing3D
+          radius={4.2}
+          tilt={[Math.PI / 2, 0, 0]}
+          reducedMotion={reducedMotion}
+        />
+        <OrbitRing3D
+          radius={6.6}
+          tilt={[Math.PI / 2.35, 0.4, 0]}
+          opacity={0.08}
+          spin={-0.014}
+          reducedMotion={reducedMotion}
+        />
+        <OrbitRing3D
+          radius={9.1}
+          tilt={[Math.PI / 1.8, -0.35, 0.25]}
+          opacity={0.05}
+          spin={0.008}
+          reducedMotion={reducedMotion}
+        />
 
         <UserCore3D pulse={!state.selectedProjectId} reducedMotion={reducedMotion} />
 

@@ -94,18 +94,22 @@ export const nodeRadius: Record<'sm' | 'md' | 'lg', number> = {
 };
 
 /**
- * The SVG scene works in a 1200×800 pixel space with the core at (600, 400).
- * The 3D scene works in world units; this converts mock coordinates so both
- * renderers stay visually recognisable from the same data.
+ * The scene space is 1200×800 with the core at (600, 400, 0); `z` is authored
+ * around 0 and needs no centring. The same numbers feed the SVG fallback (which
+ * reads x/y only) and this scene, so one mock drives both renderers.
  */
 export const SCENE_WIDTH = 1200;
 export const SCENE_HEIGHT = 800;
 const WORLD_SCALE = 0.0165;
 
-export function toWorld(position: { x: number; y: number }): [number, number, number] {
+export function toWorld(position: {
+  x: number;
+  y: number;
+  z?: number;
+}): [number, number, number] {
   return [
     (position.x - SCENE_WIDTH / 2) * WORLD_SCALE,
     -(position.y - SCENE_HEIGHT / 2) * WORLD_SCALE,
-    0,
+    (position.z ?? 0) * WORLD_SCALE,
   ];
 }

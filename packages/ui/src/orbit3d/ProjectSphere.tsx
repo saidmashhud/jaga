@@ -113,8 +113,6 @@ export function ProjectSphere({
       linearDamping={3.4}
       angularDamping={1.4}
       friction={0.1}
-      // keep the composition legible: no drift along the camera axis
-      enabledTranslations={[true, true, false]}
     >
       <BallCollider args={[radius]} />
       <mesh

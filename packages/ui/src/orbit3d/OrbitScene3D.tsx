@@ -1,6 +1,6 @@
-import { useRef, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { Environment, Lightformer } from '@react-three/drei';
+import { Environment, Lightformer, OrbitControls } from '@react-three/drei';
 import { Physics } from '@react-three/rapier';
 import { NodePositionsProvider, useCreateNodePositionStore } from './node-positions';
 import { SceneEffects, type EffectQuality } from './SceneEffects';
@@ -11,7 +11,12 @@ export interface OrbitScene3DProps {
   quality?: EffectQuality;
   dpr?: [number, number];
   reducedMotion?: boolean;
-  /** Fired on Escape or a click on empty space. */
+  /**
+   * Idle auto-orbit that reads as volume from the first frame. The caller
+   * turns it off while a project is selected/entered so it can be inspected.
+   */
+  autoRotate?: boolean;
+  /** Fired on Escape or a genuine click (not a drag) on empty space. */
   onClearSelection?: () => void;
   /**
    * Fired once the physics world is live and the scene has actually drawn.
@@ -36,6 +41,44 @@ function ReadySignal({ onReady }: { onReady?: () => void }) {
 }
 
 /**
+ * Orbital camera with inertia. This is what makes the scene read as volume
+ * rather than a decorated plane: the viewer can rotate/zoom around the depth
+ * axis, and a gentle idle auto-orbit shows the parallax before any input.
+ * Zoom only (no pan) so the composition can never be lost off-screen.
+ */
+function CameraRig({
+  autoRotate = true,
+  reducedMotion = false,
+}: {
+  autoRotate?: boolean;
+  reducedMotion?: boolean;
+}) {
+  // Auto-orbit is an intro flourish: it shows depth on load, then hands full
+  // control to the user the moment they grab the scene, so nodes don't drift
+  // out from under a click.
+  const [engaged, setEngaged] = useState(false);
+  return (
+    <OrbitControls
+      makeDefault
+      enablePan={false}
+      enableDamping={!reducedMotion}
+      dampingFactor={0.08}
+      rotateSpeed={0.6}
+      zoomSpeed={0.7}
+      minDistance={11}
+      maxDistance={34}
+      // keep the horizon: never let the camera flip fully over the poles
+      minPolarAngle={Math.PI * 0.18}
+      maxPolarAngle={Math.PI * 0.82}
+      autoRotate={autoRotate && !engaged && !reducedMotion}
+      autoRotateSpeed={0.35}
+      onStart={() => setEngaged(true)}
+      target={[0, 0, 0]}
+    />
+  );
+}
+
+/**
  * Main WebGL workspace. Replaces the SVG scene: rapier drives node motion,
  * an HDRI-less Lightformer environment provides the neon rim light, and the
  * post stack (bloom / optional SSGI) turns emissive nodes into real light.
@@ -46,12 +89,16 @@ export function OrbitScene3D({
   quality = 'bloom',
   dpr = [1, 1.5],
   reducedMotion = false,
+  autoRotate = true,
   onClearSelection,
   onReady,
   children,
   className,
 }: OrbitScene3DProps) {
   const store = useCreateNodePositionStore();
+  // Where the pointer went down — used to tell a click apart from a camera drag
+  // so that rotating the scene does not deselect the current project.
+  const downPos = useRef<{ x: number; y: number } | null>(null);
 
   return (
     <Canvas
@@ -60,8 +107,19 @@ export function OrbitScene3D({
       shadows
       dpr={dpr}
       gl={{ antialias: false }}
-      camera={{ position: [0, 0, 22], fov: 34, near: 1, far: 60 }}
-      onPointerMissed={() => onClearSelection?.()}
+      // off-axis start so depth and parallax read from the very first frame
+      camera={{ position: [8, 4.5, 19], fov: 34, near: 1, far: 60 }}
+      onPointerDown={(event) => {
+        downPos.current = { x: event.clientX, y: event.clientY };
+      }}
+      onPointerMissed={(event) => {
+        const down = downPos.current;
+        // treat as a drag (camera orbit), not a click on empty space
+        if (down && Math.hypot(event.clientX - down.x, event.clientY - down.y) > 6) {
+          return;
+        }
+        onClearSelection?.();
+      }}
       // scene is decorative; every node is mirrored by a real DOM control
       aria-hidden="true"
     >
@@ -133,6 +191,7 @@ export function OrbitScene3D({
       </Environment>
 
       <ambientLight intensity={0.55} />
+      <CameraRig autoRotate={autoRotate} reducedMotion={reducedMotion} />
       <SceneEffects quality={quality} />
     </Canvas>
   );

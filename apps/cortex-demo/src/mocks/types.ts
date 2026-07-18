@@ -11,7 +11,12 @@ export interface Project {
   icon?: IconName;
   status: ProjectStatus;
   statusLabel: string;
-  position: { x: number; y: number };
+  /**
+   * Scene coordinates. `z` extends the §12 model for the 3D scene and carries
+   * meaning rather than decoration: positive z is nearer the viewer, and the
+   * scene puts what needs a decision closest. The SVG fallback ignores `z`.
+   */
+  position: { x: number; y: number; z: number };
   size: 'sm' | 'md' | 'lg';
   updatedAt: string;
   summary: string;
