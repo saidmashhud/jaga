@@ -47,3 +47,16 @@
 .facts dt { color: var(--color-text-muted, #8d94b5); }
 .facts dd { margin: 0; font-weight: 600; }
 .warn { margin-top: 16px; font-size: 13px; color: var(--color-accent-amber, #ffb454); }
+
+.signout {
+  margin-top: 14px;
+  padding: 7px 14px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.signout:hover { color: var(--color-text-primary); border-color: var(--color-text-secondary); }

@@ -12,6 +12,7 @@
  */
 import type {
   ActivityEvent,
+  Recommendation,
   FocusItem,
   Lens,
   Project,
@@ -45,6 +46,8 @@ export class SessionExpired extends Error {
 
 export interface CortexData {
   projects: Project[];
+  /** Бриф на сегодня; null — ещё не собран, и блок просто не показывается. */
+  recommendation: Recommendation | null;
   connections: ProjectConnection[];
   focus: FocusItem[];
   lenses: Lens[];
@@ -95,6 +98,26 @@ export async function loadFromApi(): Promise<{ data: CortexData; tenant: string 
   };
 
   try {
+    // Бриф спрашивается отдельно: его отсутствие — не отказ, а «ещё не
+    // собран», и ронять из-за этого всю загрузку нельзя.
+    const brief = await fetch(`${base}/v1/brief`, {
+      headers: { 'X-Tenant-Id': tenant },
+      cache: 'no-store',
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((b) =>
+        b
+          ? ({
+              id: 'brief-today',
+              title: b.title,
+              description: b.description,
+              reasons: b.reasons ?? [],
+              projectIds: b.projectIds ?? [],
+            } as Recommendation)
+          : null,
+      )
+      .catch(() => null);
+
     const [projects, connections, focus, lenses, events] = await Promise.all([
       get<Project[]>('/v1/projects', 'projects'),
       get<ProjectConnection[]>('/v1/connections', 'connections'),
@@ -111,7 +134,7 @@ export async function loadFromApi(): Promise<{ data: CortexData; tenant: string 
     // Отличать надо не «пусто или нет», а «служба ответила или нет»: первое
     // означает «вам ещё нечего смотреть», второе — «мы не смогли спросить».
 
-    return { data: { projects, connections, focus, lenses, events }, tenant };
+    return { data: { projects, connections, focus, lenses, events, recommendation: brief }, tenant };
   } catch (e) {
     // Истёкшую сессию пробрасываем наверх: там решат показать вход.
     // Проглотить её здесь значило бы оставить экран замёрзшим навсегда.

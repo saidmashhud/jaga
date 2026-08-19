@@ -107,6 +107,14 @@ func (s *sessions) access(tok string) (Access, bool) {
 	return Access{Name: v.who, Tenant: v.tenant}, true
 }
 
+// drop завершает сессию: выход должен действовать сразу, а не через сутки.
+func (s *sessions) drop(tok string) {
+	sum := sha256.Sum256([]byte(tok))
+	s.mu.Lock()
+	delete(s.live, hex.EncodeToString(sum[:]))
+	s.mu.Unlock()
+}
+
 func (s *sessions) valid(tok string) bool {
 	_, ok := s.access(tok)
 	return ok

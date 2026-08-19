@@ -60,6 +60,7 @@ async function boot() {
       connections,
       focus,
       lenses,
+      recommendation: loaded.data.recommendation,
       activities: events.map(toActivity),
       // Окно дорожки — неделя в обе стороны, ровно то, что показывает шкала
       // по умолчанию. Процент считается здесь, из времени события.
@@ -72,12 +73,13 @@ async function boot() {
   if (loaded) {
     startRefresh(
       (d) => {
-      hydrate({
-        projects: d.projects,
-        connections: d.connections,
-        focus: d.focus,
-        lenses: d.lenses,
-        activities: d.events.map(toActivity),
+        hydrate({
+          projects: d.projects,
+          connections: d.connections,
+          focus: d.focus,
+          lenses: d.lenses,
+          recommendation: d.recommendation,
+          activities: d.events.map(toActivity),
           trackEvents: d.events.map((e) => toTrackEvent(e, 24 * 7)),
         });
       },

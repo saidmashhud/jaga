@@ -173,6 +173,18 @@ function Settings() {
           <dd>{live ? 'Считает служба из связей' : 'Из образца'}</dd>
         </div>
       </dl>
+      {/* Выход. Его не было вовсе: за чужим компьютером сессию нельзя было
+          завершить ничем, кроме суток ожидания. */}
+      <button
+        className={styles.signout}
+        onClick={() =>
+          void fetch('/v1/session', { method: 'DELETE' }).finally(() =>
+            window.location.reload(),
+          )
+        }
+      >
+        Выйти
+      </button>
       {!live && (
         <p className={styles.warn}>
           Служба недоступна, показан встроенный образец. Записи из строки внизу

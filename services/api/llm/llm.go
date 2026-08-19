@@ -77,6 +77,9 @@ const system = `Ты разбираешь короткие рабочие зап
                  0, если время не названо. Отрицательное ТОЛЬКО для уже
                  случившегося. Срок («до пятницы», «к понедельнику») всегда
                  в будущем — значит положительное.
+                 «До дня недели» означает КОНЕЦ БЛИЖАЙШЕГО такого дня,
+                 18:00. Считай дни от сегодняшней даты в подсказке точно:
+                 «до пятницы» в среду — это около 50 часов, не 74.
 
 Как выбирать type:
   decision — нужно решение человека
@@ -211,4 +214,64 @@ func extract(s string) (*Parsed, error) {
 		p.OffsetHours = 0
 	}
 	return &p, nil
+}
+
+const briefSystem = `Ты пишешь короткий утренний бриф для владельца нескольких проектов.
+
+Отвечай ТОЛЬКО текстом брифа: два-три предложения по-русски, без приветствий,
+без списков, без разметки. Обращайся на «вы».
+
+Правила:
+- Опирайся ТОЛЬКО на факты ниже. Ничего не добавляй от себя.
+- Начни с самого срочного: сроки ближе 48 часов важнее всего остального.
+- Называй проекты по именам.
+- Если фактов мало, пиши коротко — одно предложение лучше воды.`
+
+// Brief пишет текст утреннего брифа по готовым фактам.
+//
+// Факты приходят строкой, собранной правилами: модель здесь — редактор, а не
+// аналитик. Решать, что важно, по сырой базе ей нельзя — она отвечает
+// минутами и склонна дописывать то, чего нет.
+func (c *Client) Brief(ctx context.Context, facts string) (string, string, error) {
+	if c == nil {
+		return "", "", errors.New("модель не настроена")
+	}
+
+	body, _ := json.Marshal(chatReq{
+		Model: c.model,
+		Messages: []message{
+			{Role: "system", Content: briefSystem + "\n\nСейчас: " + time.Now().Format("Monday, 2 January 2006, 15:04")},
+			{Role: "user", Content: "Факты:\n" + facts + "\n/no_think"},
+		},
+		Temperature:    0,
+		MaxTokens:      220,
+		TemplateKwargs: map[string]any{"enable_thinking": false},
+	})
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.base+"/v1/chat/completions", bytes.NewReader(body))
+	if err != nil {
+		return "", "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+c.key)
+
+	res, err := c.http.Do(req)
+	if err != nil {
+		return "", "", fmt.Errorf("запрос к модели: %w", err)
+	}
+	defer res.Body.Close()
+
+	raw, _ := io.ReadAll(res.Body)
+	if res.StatusCode != http.StatusOK {
+		return "", string(raw), fmt.Errorf("модель ответила %d", res.StatusCode)
+	}
+	var cr chatResp
+	if err := json.Unmarshal(raw, &cr); err != nil || len(cr.Choices) == 0 {
+		return "", string(raw), errors.New("неразобранный ответ модели")
+	}
+	text := strings.TrimSpace(cr.Choices[0].Message.Content)
+	if text == "" {
+		return "", string(raw), errors.New("модель вернула пустой бриф")
+	}
+	return text, string(raw), nil
 }

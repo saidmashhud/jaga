@@ -29,6 +29,7 @@ let composerCounter = 0;
  */
 const live: {
   projects?: Project[];
+  recommendation?: import('../mocks/types').Recommendation | null;
   connections?: typeof connections;
   focus?: typeof focusItems;
   lenses?: typeof lenses;
@@ -71,7 +72,11 @@ export const mockCortexService = {
   getConnections: () => live.connections ?? connections,
   getFocusItems: () => live.focus ?? focusItems,
   getActivities: () => live.activities ?? activities,
-  getRecommendation: () => recommendation,
+  // На живых данных рекомендация — это бриф, собранный моделью по фактам.
+  // Нет брифа — нет блока: выдуманный совет хуже пустого места, что и
+  // показала захардкоженная «AI-рекомендация» про чужой проект в пустом
+  // пространстве.
+  getRecommendation: () => (live.projects ? (live.recommendation ?? null) : recommendation),
   getLenses: () => live.lenses ?? lenses,
   getTimelinePoints: () => timelinePoints,
   getTimelineScene: (pointId: string) =>

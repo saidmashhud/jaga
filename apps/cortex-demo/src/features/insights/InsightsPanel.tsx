@@ -14,7 +14,7 @@ import {
   Text,
 } from '@cortex/ui';
 import { relativeTimeLabel } from '../../lib/relative-time';
-import { mockCortexService } from '../../services/mock-cortex-service';
+import { isLive, mockCortexService } from '../../services/mock-cortex-service';
 import { useCortex } from '../../state/CortexProvider';
 import styles from './InsightsPanel.module.css';
 
@@ -149,9 +149,32 @@ export function InsightsPanel() {
                   completed={state.completedFocusIds.includes(item.id)}
                   selected={state.selectedProjectId === item.projectId}
                   onSelect={() => selectProject(item.projectId)}
-                  onToggleComplete={(completed) =>
-                    dispatch({ type: 'toggle-focus-item', id: item.id, completed })
-                  }
+                  onToggleComplete={(completed) => {
+                    dispatch({ type: 'toggle-focus-item', id: item.id, completed });
+                    // Галочка жила только в памяти страницы: перезагрузка
+                    // возвращала все отмеченные дела как несделанные. Отметка
+                    // — это факт о работе, а не настройка вида, и ей место в
+                    // базе. Отказ не выдаём за успех: при мёртвой сессии
+                    // возвращаемся ко входу, при прочем — снимаем галочку
+                    // обратно, чтобы экран не расходился с базой.
+                    //
+                    // На образце сохранять некуда и незачем: без этой ветки
+                    // отказ вымышленной службы откатывал живую галочку.
+                    if (!isLive()) return;
+                    void fetch(`/v1/focus/${encodeURIComponent(item.id)}/done`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ done: completed }),
+                    })
+                      .then((r) => {
+                        if (r.status === 401) window.location.reload();
+                        else if (!r.ok)
+                          dispatch({ type: 'toggle-focus-item', id: item.id, completed: !completed });
+                      })
+                      .catch(() =>
+                        dispatch({ type: 'toggle-focus-item', id: item.id, completed: !completed }),
+                      );
+                  }}
                 />
               );
             })}
@@ -178,22 +201,27 @@ export function InsightsPanel() {
             })}
           </Panel>
 
-          <RecommendationCard
-            title={recommendation.title}
-            description={recommendation.description}
-            reasons={recommendation.reasons}
-            expanded={state.recommendationExpanded}
-            onToggleExpand={() => dispatch({ type: 'toggle-recommendation' })}
-            actions={
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => selectProject(recommendation.projectIds[0]!)}
-              >
-                Показать на сцене
-              </Button>
-            }
-          />
+          {/* Брифа нет — блока нет. Выдуманный совет хуже пустого
+              места: прежняя рекомендация была вшита в моки и
+              предлагала чужой проект даже в пустом пространстве. */}
+          {recommendation && (
+            <RecommendationCard
+              title={recommendation.title}
+              description={recommendation.description}
+              reasons={recommendation.reasons}
+              expanded={state.recommendationExpanded}
+              onToggleExpand={() => dispatch({ type: 'toggle-recommendation' })}
+              actions={
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => selectProject(recommendation.projectIds[0]!)}
+                >
+                  Показать на сцене
+                </Button>
+              }
+            />
+          )}
         </Stack>
       </ScrollableArea>
     </div>

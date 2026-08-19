@@ -10,11 +10,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
+	"sort"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -98,28 +101,6 @@ func main() {
 
 	s := store.New(db)
 
-	// Модель настраивается переменными; не настроена — записи просто копятся
-	// неразобранными. Это рабочее состояние: composer обязан работать и без
-	// модели, а ключ в браузере не живёт, поэтому ходит в неё служба.
-	brain := llm.New(env("LLM_URL", ""), env("LLM_KEY", ""), env("LLM_MODEL", "local"))
-	if brain == nil {
-		slog.Warn("модель не настроена — записи останутся неразобранными")
-	}
-
-	// Разбор идёт фоном, а не в запросе на сохранение: модель отвечает
-	// десятками секунд, и человек не должен ждать её, чтобы записать мысль.
-	// Одна запись за проход и без спешки — очередь тут короткая по природе,
-	// а модель на этой машине одна на всех.
-	if brain != nil {
-		go func() {
-			tick := time.NewTicker(15 * time.Second)
-			defer tick.Stop()
-			for range tick.C {
-				parseOnce(context.Background(), s, brain, env("CORTEX_TENANT_ID", "demo"))
-			}
-		}()
-	}
-
 	// Вход по ключу пространства. Ключ не задан — служба открыта, и она об
 	// этом говорит: молчаливо открытая наружу база хуже, чем названная.
 	keys := parseKeys(env("CORTEX_KEYS", ""))
@@ -139,10 +120,75 @@ func main() {
 		return requireSession(sess, len(keys) > 0, h)
 	}
 
+	// Модель настраивается переменными; не настроена — записи просто копятся
+	// неразобранными. Это рабочее состояние: composer обязан работать и без
+	// модели, а ключ в браузере не живёт, поэтому ходит в неё служба.
+	brain := llm.New(env("LLM_URL", ""), env("LLM_KEY", ""), env("LLM_MODEL", "local"))
+	if brain == nil {
+		slog.Warn("модель не настроена — записи останутся неразобранными")
+	}
+
+	// Разбор идёт фоном, а не в запросе на сохранение: модель отвечает
+	// десятками секунд, и человек не должен ждать её, чтобы записать мысль.
+	// Одна запись за проход и без спешки — очередь тут короткая по природе,
+	// а модель на этой машине одна на всех.
+	// Пространства, которые обслуживает фон. Из ключей, а не из одной
+	// переменной: с разделением по ключам записи Саида ложились в said, а
+	// фоновый разбор ходил только в demo — и его записи не разбирались
+	// никогда.
+	spaces := map[string]bool{env("CORTEX_TENANT_ID", "demo"): true}
+	for _, a := range keys {
+		spaces[a.Tenant] = true
+	}
+	tenants := make([]string, 0, len(spaces))
+	for t := range spaces {
+		tenants = append(tenants, t)
+	}
+	sort.Strings(tenants)
+
+	if brain != nil {
+		go func() {
+			tick := time.NewTicker(15 * time.Second)
+			defer tick.Stop()
+			for range tick.C {
+				for _, t := range tenants {
+					parseOnce(context.Background(), s, brain, t)
+				}
+			}
+		}()
+
+		// Бриф собирается раз в день на пространство. Проверка дешёвая,
+		// сборка — минуты модельного времени, поэтому сначала проверка.
+		go func() {
+			tick := time.NewTicker(10 * time.Minute)
+			defer tick.Stop()
+			for range tick.C {
+				for _, t := range tenants {
+					buildBriefOnce(context.Background(), s, brain, t)
+				}
+			}
+		}()
+	}
+
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /v1/session", handleSignIn(sess, keys))
 	// Кто я: страница спрашивает это до отрисовки, чтобы решить, показать
 	// вход или сцену.
+	// Выход. Его не было вовсе: сессию нельзя было завершить ничем, кроме
+	// суток ожидания — а человек за чужим компьютером не может ждать сутки.
+	mux.HandleFunc("DELETE /v1/session", func(w http.ResponseWriter, r *http.Request) {
+		if c, err := r.Cookie(sessionCookie); err == nil {
+			sess.drop(c.Value)
+		}
+		http.SetCookie(w, &http.Cookie{
+			Name: sessionCookie, Value: "", Path: "/", MaxAge: -1,
+			HttpOnly: true, Secure: os.Getenv("CORTEX_INSECURE_COOKIE") != "true",
+			SameSite: http.SameSiteLaxMode,
+		})
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	})
+
 	mux.HandleFunc("GET /v1/session", func(w http.ResponseWriter, r *http.Request) {
 		if len(keys) == 0 {
 			writeJSON(w, http.StatusOK, map[string]any{"signedIn": true, "keyRequired": false})
@@ -226,8 +272,20 @@ func main() {
 	// и «последние N» для неё бессмысленны. По умолчанию — неделя назад и
 	// неделя вперёд, ровно то, что показывает дорожка.
 	mux.HandleFunc("GET /v1/events", guard(func(w http.ResponseWriter, r *http.Request) {
-		list, err := s.Events(r.Context(), tenantOf(r),
-			intParam(r, "backHours", 24*7), intParam(r, "aheadHours", 24*7))
+		// Неверное окно отвергается, а не подменяется молча: раньше буквы,
+		// минус и пусто давали три разных ответа, и ни один не говорил
+		// «неверно» — человек получал не то окно и не знал об этом.
+		back, err := hoursParam(r, "backHours", 24*7)
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, "backHours: "+err.Error())
+			return
+		}
+		ahead, err := hoursParam(r, "aheadHours", 24*7)
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, "aheadHours: "+err.Error())
+			return
+		}
+		list, err := s.Events(r.Context(), tenantOf(r), back, ahead)
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
@@ -311,6 +369,39 @@ func main() {
 		writeJSON(w, http.StatusOK, map[string]int{"parsed": n})
 	}))
 
+	// Бриф на сегодня. Нет — 404: интерфейс просто не покажет блок, а не
+	// нарисует выдуманный. Прежняя «AI-рекомендация» была захардкожена в
+	// моках и советовала чужой проект даже в пустом пространстве.
+	mux.HandleFunc("GET /v1/brief", guard(func(w http.ResponseWriter, r *http.Request) {
+		b, err := s.TodayBrief(r.Context(), tenantOf(r))
+		switch {
+		case errors.Is(err, store.ErrNotFound):
+			writeErr(w, http.StatusNotFound, "бриф на сегодня ещё не собран")
+		case err != nil:
+			writeErr(w, http.StatusInternalServerError, err.Error())
+		default:
+			writeJSON(w, http.StatusOK, b)
+		}
+	}))
+
+	// Пересборка по требованию — для проверки и для «прямо сейчас».
+	mux.HandleFunc("POST /v1/brief/build", guard(func(w http.ResponseWriter, r *http.Request) {
+		if brain == nil {
+			writeErr(w, http.StatusServiceUnavailable, "модель не настроена")
+			return
+		}
+		if ok := buildBrief(r.Context(), s, brain, tenantOf(r)); !ok {
+			writeErr(w, http.StatusUnprocessableEntity, "не из чего собирать бриф или модель не ответила")
+			return
+		}
+		b, err := s.TodayBrief(r.Context(), tenantOf(r))
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, b)
+	}))
+
 	port := env("PORT", "8050")
 	srv := &http.Server{
 		Addr:              ":" + port,
@@ -373,4 +464,89 @@ func parseOnce(ctx context.Context, s *store.Store, brain *llm.Client, tenant st
 	}
 	slog.Info("запись разобрана", "запись", c.ID, "проект", parsed.ProjectID, "тип", parsed.Type)
 	return 1
+}
+
+// hoursParam разбирает окно в часах: пусто — значение по умолчанию, всё
+// прочее обязано быть неотрицательным числом не больше года.
+func hoursParam(r *http.Request, name string, def int) (int, error) {
+	raw := r.URL.Query().Get(name)
+	if raw == "" {
+		return def, nil
+	}
+	v, err := strconv.Atoi(raw)
+	if err != nil {
+		return 0, errors.New("нужно целое число часов")
+	}
+	if v < 0 {
+		return 0, errors.New("часы не бывают отрицательными")
+	}
+	if v > 24*365 {
+		return 0, errors.New("окно больше года не имеет смысла")
+	}
+	return v, nil
+}
+
+// buildBriefOnce собирает бриф, если на сегодня его ещё нет.
+func buildBriefOnce(ctx context.Context, s *store.Store, brain *llm.Client, tenant string) {
+	has, err := s.HasTodayBrief(ctx, tenant)
+	if err != nil || has {
+		return
+	}
+	buildBrief(ctx, s, brain, tenant)
+}
+
+// buildBrief: правила собирают факты, модель пишет по ним слова.
+func buildBrief(ctx context.Context, s *store.Store, brain *llm.Client, tenant string) bool {
+	f, err := s.BriefFacts(ctx, tenant)
+	if err != nil {
+		slog.Warn("факты для брифа", "пространство", tenant, "ошибка", err)
+		return false
+	}
+	// Пустому пространству бриф не нужен: модель ради него не гоняем, и
+	// человек не видит сочинения о нуле дел.
+	if f.Empty() {
+		return false
+	}
+
+	var sb strings.Builder
+	ids := []string{}
+	reasons := []string{}
+	for _, d := range f.Deadlines {
+		fmt.Fprintf(&sb, "- срок через %d ч: «%s» (проект %s)\n", d.InHours, d.Title, d.Project)
+	}
+	if n := len(f.Deadlines); n > 0 {
+		reasons = append(reasons, fmt.Sprintf("Сроков в ближайшие 48 часов: %d", n))
+	}
+	for _, h := range f.Hot {
+		state := "ждёт решения"
+		if h.Status == "risk" {
+			state = "в риске"
+		}
+		fmt.Fprintf(&sb, "- проект «%s» %s\n", h.Title, state)
+		ids = append(ids, h.ID)
+	}
+	if n := len(f.Hot); n > 0 {
+		reasons = append(reasons, fmt.Sprintf("Проектов, требующих вас: %d", n))
+	}
+	for _, t := range f.HeavyFocus {
+		fmt.Fprintf(&sb, "- открыто дело высокого эффекта: «%s»\n", t)
+	}
+	if n := len(f.HeavyFocus); n > 0 {
+		reasons = append(reasons, fmt.Sprintf("Открытых дел высокого эффекта: %d", n))
+	}
+	fmt.Fprintf(&sb, "- событий за последние сутки: %d\n", f.FreshEvents)
+
+	text, raw, err := brain.Brief(ctx, sb.String())
+	if err != nil {
+		slog.Warn("бриф не собрался", "пространство", tenant, "ошибка", err)
+		return false
+	}
+	if err := s.SaveBrief(ctx, tenant, store.Brief{
+		Title: "Что важно сегодня", Body: text, Reasons: reasons, ProjectIDs: ids,
+	}, raw); err != nil {
+		slog.Error("сохранение брифа", "пространство", tenant, "ошибка", err)
+		return false
+	}
+	slog.Info("бриф собран", "пространство", tenant)
+	return true
 }
