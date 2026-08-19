@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { App } from '../../app/App';
@@ -164,5 +164,26 @@ describe('OrbitPage — интерактивные сценарии', () => {
   it('Inside убран из rail: вход в проект есть по щелчку на сфере', () => {
     render(<App />);
     expect(screen.queryByRole('button', { name: /Inside/i })).not.toBeInTheDocument();
+  });
+
+  it('поиск находит проект и не обещает «позже»', async () => {
+    render(<App />);
+    await userEvent.type(screen.getByRole('searchbox'), 'кофе');
+
+    const results = await screen.findByRole('listbox', { name: 'Результаты поиска' });
+    expect(within(results).getByText(/Кофейня/)).toBeInTheDocument();
+    // Раньше здесь был тост «появится на следующем этапе».
+    expect(screen.queryByText(/следующем этапе/)).not.toBeInTheDocument();
+  });
+
+  it('поиск честно говорит, когда ничего нет', async () => {
+    render(<App />);
+    await userEvent.type(screen.getByRole('searchbox'), 'йцукен');
+    expect(await screen.findByText(/Ничего не нашлось/)).toBeInTheDocument();
+  });
+
+  it('«AI Режиссёр» убран из шапки', () => {
+    render(<App />);
+    expect(screen.queryByRole('button', { name: /Режисс/i })).not.toBeInTheDocument();
   });
 });

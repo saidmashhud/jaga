@@ -1,0 +1,43 @@
+/* Подсказки под строкой поиска. Перекрывают сцену, а не раздвигают её:
+   поиск — быстрый заход, и сдвигать под ним весь экран значит менять
+   картину ради того, что закроется через секунду. */
+.results {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  max-height: 340px;
+  overflow-y: auto;
+  padding: 6px;
+  background: var(--color-bg-elevated, #0e1428);
+  border: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.14));
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+.hit {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.hit:hover, .hit:focus-visible { background: var(--color-bg-subtle, rgba(255, 255, 255, 0.06)); }
+.kind {
+  flex: 0 0 auto;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted, #8d94b5);
+}
+.text { min-width: 0; }
+.text b { display: block; font-weight: 600; font-size: 14px; }
+.text em { display: block; font-style: normal; font-size: 12px; color: var(--color-text-muted, #8d94b5); }
+.empty { margin: 0; padding: 10px; font-size: 13px; color: var(--color-text-muted, #8d94b5); }

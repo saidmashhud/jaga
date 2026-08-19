@@ -1,7 +1,8 @@
-import { AiIcon, BellIcon, InsideIcon, OrbitIcon, SettingsIcon } from '@cortex/icons';
-import { Avatar, Button, IconButton, SearchCommandField, Tooltip } from '@cortex/ui';
+import { BellIcon, InsideIcon, OrbitIcon, SettingsIcon } from '@cortex/icons';
+import { Avatar, IconButton, SearchCommandField, Tooltip } from '@cortex/ui';
 import { useCortex } from '../../state/CortexProvider';
 import styles from './AppHeader.module.css';
+import { SearchResults } from '../search/SearchResults';
 
 export function AppHeader() {
   const { state, dispatch } = useCortex();
@@ -28,30 +29,14 @@ export function AppHeader() {
             dispatch({ type: 'search-listening', value: !state.searchListening })
           }
           onAiToggle={() => dispatch({ type: 'toggle-ai-mode' })}
-          onSubmit={() =>
-            dispatch({
-              type: 'show-toast',
-              message: 'Поиск по контексту появится на следующем этапе.',
-            })
-          }
+          onSubmit={() => undefined}
         />
+        {/* Подсказки появляются по мере набора — отдельное нажатие «найти»
+            здесь лишний шаг: искомое обычно видно уже со второй буквы. */}
+        <SearchResults />
       </div>
 
       <div className={styles.actions}>
-        <Button
-          variant="ai"
-          size="md"
-          className={styles.aiDirector}
-          iconLeft={<AiIcon size={16} />}
-          onClick={() =>
-            dispatch({
-              type: 'show-toast',
-              message: 'AI Режиссёр — демо. Реальный сценарий появится позже.',
-            })
-          }
-        >
-          AI Режиссёр
-        </Button>
         <Tooltip content="Уведомления" placement="bottom">
           <span className={styles.notifWrap}>
             <IconButton
