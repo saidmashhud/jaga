@@ -19,19 +19,48 @@ export interface ComposerResult {
 
 let composerCounter = 0;
 
+/**
+ * Живой источник данных.
+ *
+ * Компоненты читают синхронно, а сеть асинхронна, поэтому подмена делается не
+ * заменой объекта службы, а заменой того, что она отдаёт: данные загружаются
+ * один раз до отрисовки и кладутся сюда. Пусто — приложение работает на моках,
+ * и это рабочее состояние, а не поломка: стенд без службы обязан открываться.
+ */
+const live: {
+  projects?: Project[];
+  connections?: typeof connections;
+  focus?: typeof focusItems;
+  lenses?: typeof lenses;
+  activities?: ActivityEvent[];
+  trackEvents?: typeof timelineEvents;
+} = {};
+
+/** Заполняется один раз при старте, до первой отрисовки. */
+export function hydrate(data: Partial<typeof live>): void {
+  Object.assign(live, data);
+}
+
+/** Работает ли приложение на живых данных — нужно интерфейсу и журналу. */
+export function isLive(): boolean {
+  return Boolean(live.projects?.length);
+}
+
+const liveById = () => new Map((live.projects ?? []).map((p) => [p.id, p]));
+
 export const mockCortexService = {
-  getProjects: (): Project[] => projects,
-  getProject: (id: string) => projectById.get(id),
+  getProjects: (): Project[] => live.projects ?? projects,
+  getProject: (id: string) => (live.projects ? liveById().get(id) : projectById.get(id)),
   getProjectColor: (id: string) => projectColorVar[id] ?? 'var(--color-accent-blue)',
-  getConnections: () => connections,
-  getFocusItems: () => focusItems,
-  getActivities: () => activities,
+  getConnections: () => live.connections ?? connections,
+  getFocusItems: () => live.focus ?? focusItems,
+  getActivities: () => live.activities ?? activities,
   getRecommendation: () => recommendation,
-  getLenses: () => lenses,
+  getLenses: () => live.lenses ?? lenses,
   getTimelinePoints: () => timelinePoints,
   getTimelineScene: (pointId: string) =>
     timelineScenes[pointId as keyof typeof timelineScenes] ?? timelineScenes.now,
-  getTimelineEvents: () => timelineEvents,
+  getTimelineEvents: () => live.trackEvents ?? timelineEvents,
 
   /**
    * Mock context ingestion: naive project matching by title mention,
