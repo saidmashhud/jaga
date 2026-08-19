@@ -1,8 +1,8 @@
 FROM golang:1.23-alpine AS build
 WORKDIR /src
-COPY services/api/go.mod services/api/go.sum* ./
-RUN go mod download 2>/dev/null || true
 COPY services/api/ ./
+# go.sum в репозитории нет: зависимость одна, и tidy её разрешает сам
+RUN go mod tidy
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/cortex-api .
 
 FROM alpine:3.20

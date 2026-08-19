@@ -1,0 +1,50 @@
+# Служба Cortex.
+#
+# Отдельный объект, а не контейнер рядом со статикой: у них разный ритм
+# раската — интерфейс пересобирается на каждую правку вёрстки, служба нет.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cortex-api
+  namespace: cortex
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: cortex-api}}
+  template:
+    metadata:
+      labels: {app: cortex-api}
+    spec:
+      containers:
+        - name: api
+          image: localhost:31500/cortex/api:0.1.0
+          env:
+            - name: DATABASE_URL
+              valueFrom: {secretKeyRef: {name: cortex-db, key: DATABASE_URL}}
+            - name: PORT
+              value: "8050"
+            - name: CORTEX_TENANT_ID
+              value: demo
+          ports: [{containerPort: 8050}]
+          # Проба бьёт в /health, который проверяет базу. Служба без базы не
+          # умеет ничего, и «готов» в этом состоянии пускает на себя трафик,
+          # который весь превратится в ошибки.
+          readinessProbe:
+            httpGet: {path: /health, port: 8050}
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /health, port: 8050}
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          resources:
+            requests: {cpu: 20m, memory: 32Mi}
+            limits: {memory: 128Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cortex-api
+  namespace: cortex
+spec:
+  selector: {app: cortex-api}
+  ports: [{port: 8050, targetPort: 8050}]

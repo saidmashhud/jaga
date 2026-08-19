@@ -65,8 +65,11 @@ async function readConfig(): Promise<RuntimeConfig> {
  */
 export async function loadFromApi(): Promise<{ data: CortexData; tenant: string } | null> {
   const cfg = await readConfig();
-  const base = (cfg.apiUrl ?? '').replace(/\/+$/, '');
-  if (!base) return null;
+  // Отсутствующий адрес — работаем на моках. Адрес «/» означает тот же
+  // источник, что и страница: служба проброшена туннелем на тот же хост, и
+  // межисточниковых запросов при этом нет вовсе.
+  if (cfg.apiUrl === undefined || cfg.apiUrl === '') return null;
+  const base = cfg.apiUrl.replace(/\/+$/, '');
 
   const tenant = cfg.tenantId ?? 'demo';
   const get = async <T>(path: string, key: string): Promise<T> => {
@@ -137,8 +140,8 @@ export function toTrackEvent(e: ApiEvent, windowHours: number, now = Date.now())
 /** Отправка записи из композера. Возвращает false, если служба не настроена. */
 export async function sendCapture(text: string): Promise<boolean> {
   const cfg = await readConfig();
-  const base = (cfg.apiUrl ?? '').replace(/\/+$/, '');
-  if (!base) return false;
+  if (cfg.apiUrl === undefined || cfg.apiUrl === '') return false;
+  const base = cfg.apiUrl.replace(/\/+$/, '');
   try {
     const r = await fetch(`${base}/v1/captures`, {
       method: 'POST',
