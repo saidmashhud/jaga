@@ -258,14 +258,18 @@ func (s *Store) Lenses(ctx context.Context, tenant string) ([]Lens, error) {
 		  ON p.tenant_id = l.tenant_id
 		 AND CASE l.type
 		       WHEN 'decisions' THEN p.status = 'decision'
-		       WHEN 'risks'     THEN p.status = 'risk'
+		       -- Линза обещает «с риском ИЛИ требующие внимания», а считала
+		       -- только риск: обещание и подсчёт разошлись, и человек не
+		       -- видел половины того, за чем сюда шёл.
+		       WHEN 'risks'     THEN p.status IN ('risk', 'attention')
 		       -- «что влияет на деньги» — проекты, у которых есть денежная связь
 		       WHEN 'money'     THEN EXISTS (
 		            SELECT 1 FROM connections c
 		            WHERE c.tenant_id = p.tenant_id AND c.type = 'finance'
 		              AND (c.source_id = p.id OR c.target_id = p.id))
-		       -- «без обновлений» — по последнему изменению, а не по статусу
-		       WHEN 'stale'     THEN p.updated_at < now() - interval '14 days'
+		       -- «без обновлений» — по последнему изменению, а не по статусу.
+		       -- Неделя, а не две: ровно то, что написано в подписи линзы.
+		       WHEN 'stale'     THEN p.updated_at < now() - interval '7 days'
 		       ELSE false
 		     END
 		WHERE l.tenant_id = $1
@@ -345,10 +349,21 @@ func (s *Store) AddCapture(ctx context.Context, tenant, text string) (*Capture, 
 
 // PendingCaptures — записи, ждущие разбора.
 func (s *Store) PendingCaptures(ctx context.Context, tenant string, limit int) ([]Capture, error) {
+	// Запись забирается из очереди, а не читается: фоновый проход и ручной
+	// вызов /v1/captures/parse брали одну и ту же и разбирали её дважды —
+	// модель работала впустую, а событие могло завестись двумя путями.
+	//
+	// FOR UPDATE SKIP LOCKED: второй читатель не ждёт первого, а берёт
+	// следующую. Ждать здесь нечего — очередь на то и очередь.
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, text FROM captures
-		WHERE tenant_id = $1 AND state = 'pending'
-		ORDER BY created_at LIMIT $2`, tenant, limit)
+		UPDATE captures SET state = 'parsing'
+		WHERE id IN (
+			SELECT id FROM captures
+			WHERE tenant_id = $1 AND state = 'pending'
+			ORDER BY created_at LIMIT $2
+			FOR UPDATE SKIP LOCKED
+		)
+		RETURNING id, text`, tenant, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -420,6 +435,15 @@ func (s *Store) ApplyParse(ctx context.Context, tenant, captureID, projectID, ti
 	}
 
 	if projectID != "" {
+		// Событие по проекту — это и есть его обновление. Без этой отметки
+		// projects.updated_at не двигал никто, и линза «без обновлений»
+		// возвращала все проекты навсегда: она была верна ровно один раз, в
+		// день создания записи.
+		if _, err := tx.ExecContext(ctx, `
+			UPDATE projects SET updated_at = now()
+			WHERE tenant_id = $1 AND id = $2`, tenant, projectID); err != nil {
+			return fmt.Errorf("отметка обновления проекта: %w", err)
+		}
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO events (tenant_id, id, project_id, title, type, intensity, occurred_at)
 			VALUES ($1, 'cap-' || $2::text, $3, $4, $5, 1, now() + make_interval(hours => $6))
