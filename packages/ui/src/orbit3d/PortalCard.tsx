@@ -43,7 +43,7 @@ export function PortalCard({
   id,
   title,
   caption,
-  bg = '#0b1020',
+  bg = '#0b0b0d',
   open,
   position = [0, 0, 0],
   rotation = [0, 0, 0],

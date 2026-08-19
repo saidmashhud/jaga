@@ -53,7 +53,10 @@
 
 /* variants */
 .primary {
-  background: linear-gradient(135deg, var(--color-accent-violet), #5a3df0);
+  /* Ровная заливка вместо градиента из двух фиолетовых: градиент пережил
+     смену палитры и остался самым заметным пятном на экране, где цвет
+     принадлежит данным, а не оправе. */
+  background: var(--color-accent-violet);
   color: #fff;
   box-shadow: 0 4px 18px rgba(118, 87, 255, 0.28);
 }
@@ -102,7 +105,7 @@
     rgba(55, 217, 255, 0.14)
   );
   border-color: rgba(155, 123, 255, 0.45);
-  color: #c9b8ff;
+  color: var(--color-accent-violet);
 }
 
 .ai:hover:not(:disabled) {

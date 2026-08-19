@@ -55,7 +55,7 @@
 }
 
 .ai:hover:not(:disabled) {
-  color: #c9b8ff;
+  color: var(--color-accent-violet);
   box-shadow: var(--glow-ai);
 }
 

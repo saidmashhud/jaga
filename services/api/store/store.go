@@ -449,3 +449,140 @@ func (s *Store) FailParse(ctx context.Context, tenant, captureID, reason string)
 		WHERE tenant_id = $1 AND id = $2`, tenant, captureID, reason)
 	return err
 }
+
+// NewProject — то, что человек заводит руками.
+//
+// Координат здесь нет намеренно: их считает раскладка из связей и статуса.
+// Просить человека назвать место проекта на сцене значило бы вернуть ту
+// самую ручную расстановку, от которой мы ушли.
+type NewProject struct {
+	ID       string `json:"id"`
+	Title    string `json:"title"`
+	Subtitle string `json:"subtitle"`
+	Status   string `json:"status"`
+	Summary  string `json:"summary"`
+}
+
+var statusLabels = map[string]string{
+	"decision":  "Требует решения",
+	"risk":      "Риск",
+	"attention": "Требует внимания",
+	"working":   "В работе",
+	"stable":    "Стабильно",
+	"paused":    "На паузе",
+}
+
+// CreateProject заводит проект.
+//
+// Идентификатор задаётся человеком или выводится из названия: он попадает в
+// ссылки и в разбор записей моделью, и случайный набор букв там читался бы
+// хуже, чем «kofeynya».
+func (s *Store) CreateProject(ctx context.Context, tenant string, p NewProject) (string, error) {
+	title := strings.TrimSpace(p.Title)
+	if title == "" {
+		return "", errors.New("нужно название проекта")
+	}
+	label, ok := statusLabels[p.Status]
+	if !ok {
+		// Неизвестный статус не подставляем молча: у каждого своё место на
+		// оси внимания, и «что-то по умолчанию» поставит проект не туда.
+		return "", errors.New("неизвестное состояние проекта")
+	}
+
+	id := strings.TrimSpace(p.ID)
+	if id == "" {
+		id = slug(title)
+	}
+	if id == "" {
+		return "", errors.New("не удалось вывести идентификатор из названия")
+	}
+
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO projects (tenant_id, id, title, subtitle, status, status_label, summary, size)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, 'md')`,
+		tenant, id, title, strings.TrimSpace(p.Subtitle), p.Status, label, strings.TrimSpace(p.Summary))
+	if err != nil {
+		if isUnique(err) {
+			return "", errors.New("проект с таким идентификатором уже есть")
+		}
+		return "", fmt.Errorf("создание проекта: %w", err)
+	}
+	return id, nil
+}
+
+// slug выводит идентификатор из названия.
+//
+// Кириллица переводится в латиницу: идентификатор попадает в адрес и в
+// подсказку модели, и «кофейня» там читается всеми, а «%D0%BA%D0%BE» — никем.
+func slug(title string) string {
+	var b strings.Builder
+	prevDash := false
+	for _, r := range strings.ToLower(title) {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
+			b.WriteRune(r)
+			prevDash = false
+		case translit[r] != "":
+			b.WriteString(translit[r])
+			prevDash = false
+		default:
+			if !prevDash && b.Len() > 0 {
+				b.WriteByte('-')
+				prevDash = true
+			}
+		}
+	}
+	return strings.Trim(b.String(), "-")
+}
+
+var translit = map[rune]string{
+	'а': "a", 'б': "b", 'в': "v", 'г': "g", 'д': "d", 'е': "e", 'ё': "e",
+	'ж': "zh", 'з': "z", 'и': "i", 'й': "y", 'к': "k", 'л': "l", 'м': "m",
+	'н': "n", 'о': "o", 'п': "p", 'р': "r", 'с': "s", 'т': "t", 'у': "u",
+	'ф': "f", 'х': "h", 'ц': "c", 'ч': "ch", 'ш': "sh", 'щ': "sch",
+	'ы': "y", 'э': "e", 'ю': "yu", 'я': "ya",
+}
+
+func isUnique(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "duplicate key")
+}
+
+// NewConnection — связь между двумя проектами.
+type NewConnection struct {
+	SourceID string `json:"sourceId"`
+	TargetID string `json:"targetId"`
+	Label    string `json:"label"`
+	Type     string `json:"type"`
+	Strength int    `json:"strength"`
+}
+
+// CreateConnection связывает два проекта.
+//
+// Связи — это то, из чего раскладка выводит расположение: чем их больше, тем
+// осмысленнее сцена. Поэтому заводить их надо так же легко, как проекты.
+func (s *Store) CreateConnection(ctx context.Context, tenant string, c NewConnection) (string, error) {
+	if c.SourceID == c.TargetID {
+		return "", errors.New("проект нельзя связать с самим собой")
+	}
+	if c.Strength < 1 || c.Strength > 3 {
+		c.Strength = 1
+	}
+	switch c.Type {
+	case "resource", "finance", "dependency", "team", "client", "knowledge":
+	default:
+		return "", errors.New("неизвестный вид связи")
+	}
+
+	id := c.SourceID + "-" + c.TargetID
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO connections (tenant_id, id, source_id, target_id, label, type, strength)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		tenant, id, c.SourceID, c.TargetID, strings.TrimSpace(c.Label), c.Type, c.Strength)
+	if err != nil {
+		if isUnique(err) {
+			return "", errors.New("такая связь уже есть")
+		}
+		return "", fmt.Errorf("создание связи: %w", err)
+	}
+	return id, nil
+}

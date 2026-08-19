@@ -1,0 +1,84 @@
+.form { display: grid; gap: var(--space-4, 16px); }
+.title { margin: 0; font-size: 1.25rem; font-weight: 600; letter-spacing: -0.02em; }
+
+.field { display: grid; gap: 5px; }
+.label {
+  font-family: var(--font-family-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+/* Поля — линия снизу, как графа на бланке: прямоугольник с рамкой и
+   скруглением здесь читался бы как форма из любого приложения. */
+.field input,
+.field textarea {
+  width: 100%;
+  padding: 0.55rem 0 0.6rem;
+  border: 0;
+  border-bottom: 1px solid var(--color-border-default);
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 0.98rem;
+  resize: vertical;
+}
+.field input::placeholder,
+.field textarea::placeholder { color: var(--color-text-disabled); }
+.field input:focus,
+.field textarea:focus { outline: none; border-bottom-color: var(--color-accent-violet); }
+
+.states { display: grid; gap: 2px; margin: 0; padding: 0; border: 0; }
+.states legend { margin-bottom: 6px; padding: 0; }
+
+.state, .stateOn {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+}
+.state:hover { background: var(--color-bg-surface); }
+/* Выбранное состояние отмечено янтарём — тем же, чем на сцене отмечено то,
+   что требует руки. */
+.stateOn { background: var(--color-bg-surface); box-shadow: inset 2px 0 0 var(--color-accent-violet); }
+.state input, .stateOn input { margin: 0; accent-color: var(--color-accent-violet); }
+.state b, .stateOn b { display: block; font-size: 0.92rem; font-weight: 500; }
+.state em, .stateOn em {
+  display: block;
+  font-style: normal;
+  font-size: 0.78rem;
+  color: var(--color-text-tertiary);
+}
+
+.actions { display: flex; gap: 10px; align-items: center; }
+.submit {
+  padding: 0.55rem 1.05rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.submit:hover:not(:disabled) {
+  background: var(--color-accent-violet);
+  border-color: var(--color-accent-violet);
+  color: var(--color-text-on-accent);
+}
+.submit:disabled { opacity: 0.4; cursor: not-allowed; }
+.cancel {
+  border: 0;
+  background: none;
+  color: var(--color-text-tertiary);
+  font: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+.cancel:hover { color: var(--color-text-primary); }
+
+.err { margin: 0; font-family: var(--font-family-mono); font-size: 0.75rem; color: var(--color-accent-orange); }
+.foot { margin: 0; font-size: 0.78rem; line-height: 1.55; color: var(--color-text-tertiary); }

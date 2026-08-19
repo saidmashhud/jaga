@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
@@ -25,6 +26,7 @@ import (
 // цена: перезапуск здесь редкое событие, а не рабочий режим.
 type session struct {
 	who     string
+	tenant  string
 	expires time.Time
 }
 
@@ -35,30 +37,42 @@ type sessions struct {
 
 func newSessions() *sessions { return &sessions{live: map[string]session{}} }
 
-// parseKeys разбирает список именованных ключей вида «Имя:ключ,Имя:ключ».
+// Access — кому принадлежит ключ и в какое пространство он ведёт.
+type Access struct {
+	Name   string
+	Tenant string
+}
+
+// parseKeys разбирает список ключей вида «Имя:тенант:ключ,Имя:тенант:ключ».
 //
 // Имя нужно не для красоты: один ключ на всех отвечает на вопрос «пустили ли»,
 // но не на «кто вошёл», а второй вопрос и есть тот, ради которого заводят
 // доступ. Имя ложится в сессию и дальше сможет попасть в журнал действий.
-func parseKeys(raw string) map[string]string {
-	out := map[string]string{}
-	for _, pair := range strings.Split(raw, ",") {
-		pair = strings.TrimSpace(pair)
-		if pair == "" {
+//
+// Тенант в ключе обязателен: пространство — это то, что человек наполняет
+// сам, и делить его с чужими проектами он не подписывался. Один тенант на
+// всех был временным упрощением, пока пространство было одно.
+func parseKeys(raw string) map[string]Access {
+	out := map[string]Access{}
+	for _, row := range strings.Split(raw, ",") {
+		row = strings.TrimSpace(row)
+		if row == "" {
 			continue
 		}
-		// Разделитель ищем справа: имя может содержать двоеточие, ключ — нет,
-		// потому что мы его сами и порождаем.
-		i := strings.LastIndex(pair, ":")
-		if i <= 0 || i == len(pair)-1 {
+		parts := strings.Split(row, ":")
+		if len(parts) != 3 {
 			continue
 		}
-		out[strings.TrimSpace(pair[i+1:])] = strings.TrimSpace(pair[:i])
+		name, tenant, key := strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]), strings.TrimSpace(parts[2])
+		if name == "" || tenant == "" || key == "" {
+			continue
+		}
+		out[key] = Access{Name: name, Tenant: tenant}
 	}
 	return out
 }
 
-func (s *sessions) issue(who string, ttl time.Duration) string {
+func (s *sessions) issue(a Access, ttl time.Duration) string {
 	raw := make([]byte, 32)
 	_, _ = rand.Read(raw)
 	tok := base64.RawURLEncoding.EncodeToString(raw)
@@ -74,27 +88,27 @@ func (s *sessions) issue(who string, ttl time.Duration) string {
 			delete(s.live, k)
 		}
 	}
-	s.live[hex.EncodeToString(sum[:])] = session{who: who, expires: now.Add(ttl)}
+	s.live[hex.EncodeToString(sum[:])] = session{who: a.Name, tenant: a.Tenant, expires: now.Add(ttl)}
 	return tok
 }
 
-// who возвращает имя вошедшего и признак живой сессии.
-func (s *sessions) who(tok string) (string, bool) {
+// access возвращает, кто вошёл и в какое пространство.
+func (s *sessions) access(tok string) (Access, bool) {
 	if tok == "" {
-		return "", false
+		return Access{}, false
 	}
 	sum := sha256.Sum256([]byte(tok))
 	s.mu.RLock()
 	v, ok := s.live[hex.EncodeToString(sum[:])]
 	s.mu.RUnlock()
 	if !ok || v.expires.Before(time.Now()) {
-		return "", false
+		return Access{}, false
 	}
-	return v.who, true
+	return Access{Name: v.who, Tenant: v.tenant}, true
 }
 
 func (s *sessions) valid(tok string) bool {
-	_, ok := s.who(tok)
+	_, ok := s.access(tok)
 	return ok
 }
 
@@ -111,15 +125,22 @@ func requireSession(s *sessions, keySet bool, next http.HandlerFunc) http.Handle
 			return
 		}
 		c, err := r.Cookie(sessionCookie)
-		if err != nil || !s.valid(c.Value) {
+		if err != nil {
 			writeErr(w, http.StatusUnauthorized, "нужен вход")
 			return
 		}
-		next(w, r)
+		a, ok := s.access(c.Value)
+		if !ok {
+			writeErr(w, http.StatusUnauthorized, "нужен вход")
+			return
+		}
+		// Пространство кладём в контекст запроса: дальше его берут отсюда, и
+		// заголовку X-Tenant-Id больше никто не верит.
+		next(w, r.WithContext(context.WithValue(r.Context(), tenantKey{}, a.Tenant)))
 	}
 }
 
-func handleSignIn(s *sessions, keys map[string]string) http.HandlerFunc {
+func handleSignIn(s *sessions, keys map[string]Access) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Key string `json:"key"`
@@ -134,13 +155,13 @@ func handleSignIn(s *sessions, keys map[string]string) http.HandlerFunc {
 		// прекращается на первом несовпавшем знаке, и ключ подбирается
 		// посимвольно.
 		given := strings.TrimSpace(body.Key)
-		matched := ""
-		for k, name := range keys {
+		var matched Access
+		for k, a := range keys {
 			if subtle.ConstantTimeCompare([]byte(given), []byte(k)) == 1 {
-				matched = name
+				matched = a
 			}
 		}
-		if matched == "" {
+		if matched.Name == "" {
 			writeErr(w, http.StatusUnauthorized, "ключ не подошёл")
 			return
 		}
@@ -157,6 +178,6 @@ func handleSignIn(s *sessions, keys map[string]string) http.HandlerFunc {
 			SameSite: http.SameSiteLaxMode,
 			MaxAge:   int((24 * time.Hour).Seconds()),
 		})
-		writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "who": matched})
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "who": matched.Name})
 	}
 }

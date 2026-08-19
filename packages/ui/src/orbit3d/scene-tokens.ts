@@ -54,7 +54,7 @@ export const statusMaterial: Record<SemanticStatus, StatusMaterial> = {
   },
   paused: {
     color: rawColors.statePaused,
-    emissive: '#0b1020',
+    emissive: '#0b0b0d',
     emissiveIntensity: 0.05,
     roughness: 0.82,
     metalness: 0.05,

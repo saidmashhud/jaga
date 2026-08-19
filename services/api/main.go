@@ -36,8 +36,17 @@ func env(key, def string) string {
 // Из тела его брать нельзя никогда: это поле, которым клиент назначает себе
 // чужие данные. Значение по умолчанию есть, пока арендатор один, — но точка,
 // где оно проставляется, уже одна и уже здесь.
+// Тенант приходит из сессии, а не из заголовка.
+//
+// Заголовку верить нельзя: это поле, которым клиент назначал себе чужое
+// пространство одной строкой в запросе. Пока вход был не обязателен, брать
+// его было неоткуда; теперь есть откуда, и заголовок больше не смотрим.
+//
+// Ключ ведёт в своё пространство — это и означает «данные Саида отдельно».
+type tenantKey struct{}
+
 func tenantOf(r *http.Request) string {
-	if t := r.Header.Get("X-Tenant-Id"); t != "" {
+	if t, ok := r.Context().Value(tenantKey{}).(string); ok && t != "" {
 		return t
 	}
 	return env("CORTEX_TENANT_ID", "demo")
@@ -119,11 +128,12 @@ func main() {
 		slog.Warn("CORTEX_KEYS не задан — служба отвечает без входа")
 	} else {
 		// Имена в журнал, ключи — нет: журналы читают и пересылают.
-		names := make([]string, 0, len(keys))
-		for _, n := range keys {
-			names = append(names, n)
+		// Имена и пространства в журнал, ключи — нет: журналы читают и пересылают.
+		who := make([]string, 0, len(keys))
+		for _, a := range keys {
+			who = append(who, a.Name+" → "+a.Tenant)
 		}
-		slog.Info("вход по ключу", "имён", names)
+		slog.Info("вход по ключу", "доступ", who)
 	}
 	guard := func(h http.HandlerFunc) http.HandlerFunc {
 		return requireSession(sess, len(keys) > 0, h)
@@ -138,12 +148,14 @@ func main() {
 			writeJSON(w, http.StatusOK, map[string]any{"signedIn": true, "keyRequired": false})
 			return
 		}
-		who := ""
+		who, space := "", ""
 		if c, err := r.Cookie(sessionCookie); err == nil {
-			who, _ = sess.who(c.Value)
+			if a, ok := sess.access(c.Value); ok {
+				who, space = a.Name, a.Tenant
+			}
 		}
 		writeJSON(w, http.StatusOK, map[string]any{
-			"signedIn": who != "", "keyRequired": true, "who": who,
+			"signedIn": who != "", "keyRequired": true, "who": who, "space": space,
 		})
 	})
 
@@ -214,6 +226,34 @@ func main() {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"events": list})
+	}))
+
+	mux.HandleFunc("POST /v1/projects", guard(func(w http.ResponseWriter, r *http.Request) {
+		var p store.NewProject
+		if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
+			writeErr(w, http.StatusBadRequest, "неразобранное тело запроса")
+			return
+		}
+		id, err := s.CreateProject(r.Context(), tenantOf(r), p)
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusCreated, map[string]string{"id": id})
+	}))
+
+	mux.HandleFunc("POST /v1/connections", guard(func(w http.ResponseWriter, r *http.Request) {
+		var c store.NewConnection
+		if err := json.NewDecoder(r.Body).Decode(&c); err != nil {
+			writeErr(w, http.StatusBadRequest, "неразобранное тело запроса")
+			return
+		}
+		id, err := s.CreateConnection(r.Context(), tenantOf(r), c)
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusCreated, map[string]string{"id": id})
 	}))
 
 	mux.HandleFunc("GET /v1/lenses", guard(func(w http.ResponseWriter, r *http.Request) {

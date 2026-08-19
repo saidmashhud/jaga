@@ -109,7 +109,10 @@
   height: 38px;
   border: none;
   border-radius: var(--radius-round);
-  background: linear-gradient(135deg, var(--color-accent-violet), #5a3df0);
+  /* Ровная заливка вместо градиента из двух фиолетовых: градиент пережил
+     смену палитры и остался самым заметным пятном на экране, где цвет
+     принадлежит данным, а не оправе. */
+  background: var(--color-accent-violet);
   color: #fff;
   cursor: pointer;
   transition:

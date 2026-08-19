@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { isLive, mockCortexService } from '../../services/mock-cortex-service';
 import { useCortex } from '../../state/CortexProvider';
+import { NewProject } from '../projects/NewProject';
 import styles from './ModePanel.module.css';
 
 /**
@@ -171,8 +172,50 @@ function Settings() {
 
 export function ModePanel() {
   const { state, setNavigationMode } = useCortex();
+  const [creating, setCreating] = useState(false);
   const mode = state.navigationMode;
-  if (mode === 'orbit') return null;
+
+  // Пустое пространство зовёт завести первый проект прямо со сцены: там
+  // человек и стоит, когда ему нечего смотреть. Отправлять его искать
+  // кнопку в разделах значило бы оставить пустоту без ответа.
+  if (mode === 'orbit') {
+    const empty = mockCortexService.getProjects().length === 0;
+    if (!empty && !creating) return null;
+    return (
+      <aside className={styles.panel} role="dialog" aria-label="Новый проект">
+        {creating || empty ? (
+          <>
+            {!empty && (
+              <button className={styles.close} onClick={() => setCreating(false)}>
+                Закрыть
+              </button>
+            )}
+            {empty && !creating && (
+              <>
+                <h2 className={styles.title}>Пространство пустое</h2>
+                <p className={styles.lede}>
+                  Сцена показывает ваши дела и связи между ними. Начните с
+                  первого — остальное встанет вокруг него само.
+                </p>
+              </>
+            )}
+            {(creating || empty) && (
+              <NewProject
+                onDone={() => {
+                  setCreating(false);
+                  // Перезагрузка, а не догрузка: раскладка считается службой
+                  // из всех связей разом, и дорисовать один узел на месте
+                  // нельзя — переедут все.
+                  window.location.reload();
+                }}
+                onCancel={() => setCreating(false)}
+              />
+            )}
+          </>
+        ) : null}
+      </aside>
+    );
+  }
 
   return (
     <aside className={styles.panel} role="dialog" aria-label="Раздел">
