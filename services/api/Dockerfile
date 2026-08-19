@@ -3,6 +3,9 @@ WORKDIR /src
 COPY services/api/ ./
 # go.sum в репозитории нет: зависимость одна, и tidy её разрешает сам
 RUN go mod tidy
+# Эталон разбора гоняется в сборке: он не ходит в сеть и укладывается в
+# миллисекунды, поэтому нет причины пускать образ, который его не проходит.
+RUN go test ./llm/
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/cortex-api .
 
 FROM alpine:3.20
