@@ -88,6 +88,11 @@ type chatReq struct {
 	Messages    []message `json:"messages"`
 	Temperature float64   `json:"temperature"`
 	MaxTokens   int       `json:"max_tokens"`
+	// Qwen3 по умолчанию рассуждает вслух, а llama.cpp вырезает блок
+	// размышлений из ответа. Модель успевала израсходовать весь лимит внутри
+	// него и возвращала пустое содержимое с причиной остановки «length» —
+	// то есть разбор падал не из-за плохого запроса, а из-за формата.
+	TemplateKwargs map[string]any `json:"chat_template_kwargs,omitempty"`
 }
 
 type message struct {
@@ -118,14 +123,18 @@ func (c *Client) Parse(ctx context.Context, text string, projects []Project) (*P
 		Model: c.model,
 		Messages: []message{
 			{Role: "system", Content: system},
-			{Role: "user", Content: "Проекты:\n" + list.String() + "\nЗапись: " + text},
+			// «/no_think» дублирует настройку шаблона: она работает на сборках,
+			// где шаблон её понимает, а метка — на остальных. Стоит дёшево, а
+			// разница между ними — пустой ответ вместо разбора.
+			{Role: "user", Content: "Проекты:\n" + list.String() + "\nЗапись: " + text + " /no_think"},
 		},
 		// Ноль, а не значение по умолчанию: это извлечение фактов, а не
 		// сочинение, и разнообразие ответов здесь — чистый вред.
 		Temperature: 0,
 		// Ответ — маленький объект в четыре поля. Просить больше значит
 		// платить минутами: на этой машине токен стоит около двух секунд.
-		MaxTokens:   120,
+		MaxTokens:      160,
+		TemplateKwargs: map[string]any{"enable_thinking": false},
 	})
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.base+"/v1/chat/completions", bytes.NewReader(body))
