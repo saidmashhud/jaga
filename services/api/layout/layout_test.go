@@ -65,3 +65,28 @@ func TestEmpty(t *testing.T) {
 		t.Errorf("ожидалась пустая раскладка, получено %v", got)
 	}
 }
+
+// Незнакомый статус обязан быть назван, а не тихо встать в ноль.
+func TestUnknownStatuses(t *testing.T) {
+	got := UnknownStatuses([]Node{
+		{ID: "a", Status: "decision"},
+		{ID: "b", Status: "выдуманный"},
+		{ID: "c", Status: "выдуманный"},
+		{ID: "d", Status: "working"},
+	})
+	if len(got) != 1 || got[0] != "выдуманный" {
+		t.Errorf("ожидался список из одного незнакомого статуса, получено %v", got)
+	}
+}
+
+// Все статусы, какие есть в данных, должны иметь место на оси.
+func TestKnownStatusesCovered(t *testing.T) {
+	inData := []Node{
+		{ID: "1", Status: "attention"}, {ID: "2", Status: "decision"},
+		{ID: "3", Status: "paused"}, {ID: "4", Status: "risk"},
+		{ID: "5", Status: "stable"}, {ID: "6", Status: "working"},
+	}
+	if got := UnknownStatuses(inData); len(got) != 0 {
+		t.Errorf("статусы из данных без места на оси: %v", got)
+	}
+}

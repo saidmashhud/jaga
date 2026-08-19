@@ -11,6 +11,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -85,6 +86,12 @@ func (s *Store) Projects(ctx context.Context, tenant string) ([]Project, error) 
 	edges := make([]layout.Edge, 0, len(conns))
 	for _, c := range conns {
 		edges = append(edges, layout.Edge{Source: c.SourceID, Target: c.TargetID, Strength: c.Strength})
+	}
+	// Незнакомый статус — повод сказать, а не тихо поставить в ноль: ось
+	// внимания это главное высказывание сцены, и новый статус, попавший в
+	// неё случайным значением, врёт молча.
+	if unknown := layout.UnknownStatuses(nodes); len(unknown) > 0 {
+		slog.Warn("статусы без места на оси внимания", "статусы", unknown)
 	}
 	placed := layout.Compute(nodes, edges)
 	for i := range out {
