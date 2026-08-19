@@ -1,0 +1,49 @@
+/* Раздел поверх сцены: сцена остаётся видна по краям, и человек не теряет
+   контекст, в котором нажал кнопку. */
+.panel {
+  position: absolute;
+  inset: 24px auto 24px 24px;
+  width: min(420px, calc(100% - 48px));
+  overflow-y: auto;
+  padding: 20px 22px;
+  background: color-mix(in srgb, var(--color-bg-elevated, #0e1428) 92%, transparent);
+  border: 1px solid var(--color-border-subtle, rgba(255, 255, 255, 0.12));
+  border-radius: 16px;
+  backdrop-filter: blur(12px);
+  z-index: 5;
+}
+.close {
+  float: right;
+  margin: -4px -6px 0 0;
+  padding: 4px 8px;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-muted, #8d94b5);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.close:hover { color: var(--color-text-primary, #e9ecfa); }
+.title { margin: 0 0 6px; font-size: 20px; font-weight: 700; }
+.sub { margin: 20px 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--color-text-muted, #8d94b5); }
+.lede { margin: 0 0 16px; font-size: 14px; color: var(--color-text-secondary, #a8b0cd); }
+.list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.item, .itemDone {
+  padding: 10px 12px;
+  background: var(--color-bg-subtle, rgba(255, 255, 255, 0.04));
+  border-radius: 10px;
+  font-size: 14px;
+}
+/* Сделанное не исчезает: список, из которого пропадают строки, не даёт
+   увидеть, что уже закрыто, и человек отмечает вслепую. */
+.itemDone { opacity: 0.5; }
+.itemDone b { text-decoration: line-through; }
+.check { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+.item b, .itemDone b { display: block; font-weight: 600; }
+.item em, .itemDone em { display: block; margin-top: 2px; font-style: normal; font-size: 13px; color: var(--color-text-secondary, #a8b0cd); }
+.item small, .itemDone small { display: block; margin-top: 4px; font-size: 12px; color: var(--color-text-muted, #8d94b5); }
+.facts { display: grid; gap: 10px; margin: 0; }
+.facts > div { display: flex; justify-content: space-between; gap: 16px; font-size: 14px; }
+.facts dt { color: var(--color-text-muted, #8d94b5); }
+.facts dd { margin: 0; font-weight: 600; }
+.warn { margin-top: 16px; font-size: 13px; color: var(--color-accent-amber, #ffb454); }

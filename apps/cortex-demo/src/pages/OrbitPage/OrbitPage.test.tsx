@@ -142,11 +142,27 @@ describe('OrbitPage — интерактивные сценарии', () => {
     expect(node).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('не-Orbit режим навигации показывает демонстрационный toast', async () => {
+  it('раздел Focus открывает список задач, а не заглушку', async () => {
     render(<App />);
-    await userEvent.click(screen.getByRole('button', { name: 'Focus' }));
-    expect(
-      screen.getByText('Режим «Focus» появится на следующем этапе.'),
-    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /Focus/i }));
+
+    // Раньше здесь ждали тост «появится на следующем этапе». Кнопка, которая
+    // всегда говорит «позже», обучает не нажимать — и тест, закрепляющий это
+    // обещание, защищал заглушку.
+    expect(await screen.findByRole('dialog', { name: 'Раздел' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Фокус' })).toBeInTheDocument();
+    expect(screen.getAllByRole('checkbox').length).toBeGreaterThan(0);
+  });
+
+  it('раздел закрывается и возвращает к сцене', async () => {
+    render(<App />);
+    await userEvent.click(screen.getByRole('button', { name: /Focus/i }));
+    await userEvent.click(screen.getByRole('button', { name: 'Закрыть' }));
+    expect(screen.queryByRole('dialog', { name: 'Раздел' })).not.toBeInTheDocument();
+  });
+
+  it('Inside убран из rail: вход в проект есть по щелчку на сфере', () => {
+    render(<App />);
+    expect(screen.queryByRole('button', { name: /Inside/i })).not.toBeInTheDocument();
   });
 });

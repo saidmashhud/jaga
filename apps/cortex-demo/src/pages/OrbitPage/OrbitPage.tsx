@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import {
   DecisionIcon,
   FocusIcon,
-  InsideIcon,
   OrbitIcon,
   SettingsIcon,
 } from '@cortex/icons';
@@ -15,6 +14,7 @@ import { TimelineBar } from '../../features/timeline/TimelineBar';
 import { Toast } from '../../features/toast/Toast';
 import { useCortex } from '../../state/CortexProvider';
 import type { NavigationMode } from '../../state/cortex-state';
+import { ModePanel } from '../../features/modes/ModePanel';
 
 const navItems: Array<{
   mode: NavigationMode;
@@ -24,8 +24,7 @@ const navItems: Array<{
 }> = [
   { mode: 'orbit', label: 'Orbit', icon: <OrbitIcon size={20} /> },
   { mode: 'focus', label: 'Focus', icon: <FocusIcon size={20} /> },
-  { mode: 'inside', label: 'Inside', icon: <InsideIcon size={20} /> },
-  { mode: 'decision', label: 'Decision', icon: <DecisionIcon size={20} />, badge: '1' },
+  { mode: 'decision', label: 'Decision', icon: <DecisionIcon size={20} /> },
   { mode: 'settings', label: 'Settings', icon: <SettingsIcon size={20} /> },
 ];
 
@@ -73,6 +72,7 @@ export function OrbitPage() {
         composer={<ComposerBar />}
       >
         <OrbitWorkspace />
+        <ModePanel />
         <TimelineBar />
       </AppShell>
       <Toast />

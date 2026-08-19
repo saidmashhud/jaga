@@ -28,13 +28,6 @@ interface CortexContextValue {
 
 const CortexContext = createContext<CortexContextValue | null>(null);
 
-const modeLabels: Record<Exclude<NavigationMode, 'orbit'>, string> = {
-  focus: 'Focus',
-  inside: 'Inside',
-  decision: 'Decision',
-  settings: 'Настройки',
-};
-
 export function CortexProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(cortexReducer, initialCortexState);
 
@@ -89,12 +82,9 @@ export function CortexProvider({ children }: { children: ReactNode }) {
 
   const setNavigationMode = useCallback((mode: NavigationMode) => {
     dispatch({ type: 'set-navigation', mode });
-    if (mode !== 'orbit') {
-      dispatch({
-        type: 'show-toast',
-        message: `Режим «${modeLabels[mode]}» появится на следующем этапе.`,
-      });
-    }
+    // Тоста «появится на следующем этапе» здесь больше нет: разделы, которые
+    // данные поддерживают, сделаны, а «Inside» убран из rail — вход внутрь
+    // проекта давно есть по щелчку на сфере, и вторая дверь туда же не нужна.
   }, []);
 
   const value = useMemo(
