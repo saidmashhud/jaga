@@ -20,6 +20,7 @@ import (
 
 	_ "github.com/lib/pq"
 
+	"cortex/services/api/llm"
 	"cortex/services/api/store"
 )
 
@@ -87,6 +88,29 @@ func main() {
 	cancel()
 
 	s := store.New(db)
+
+	// Модель настраивается переменными; не настроена — записи просто копятся
+	// неразобранными. Это рабочее состояние: composer обязан работать и без
+	// модели, а ключ в браузере не живёт, поэтому ходит в неё служба.
+	brain := llm.New(env("LLM_URL", ""), env("LLM_KEY", ""), env("LLM_MODEL", "local"))
+	if brain == nil {
+		slog.Warn("модель не настроена — записи останутся неразобранными")
+	}
+
+	// Разбор идёт фоном, а не в запросе на сохранение: модель отвечает
+	// десятками секунд, и человек не должен ждать её, чтобы записать мысль.
+	// Одна запись за проход и без спешки — очередь тут короткая по природе,
+	// а модель на этой машине одна на всех.
+	if brain != nil {
+		go func() {
+			tick := time.NewTicker(15 * time.Second)
+			defer tick.Stop()
+			for range tick.C {
+				parseOnce(context.Background(), s, brain, env("CORTEX_TENANT_ID", "demo"))
+			}
+		}()
+	}
+
 	mux := http.NewServeMux()
 
 	// Проба проверяет базу, а не факт, что процесс жив. Служба без базы не
@@ -183,6 +207,17 @@ func main() {
 		writeJSON(w, http.StatusCreated, c)
 	})
 
+	// Разбор по требованию: фоновый проход идёт раз в пятнадцать секунд, и
+	// ждать его при проверке незачем.
+	mux.HandleFunc("POST /v1/captures/parse", func(w http.ResponseWriter, r *http.Request) {
+		if brain == nil {
+			writeErr(w, http.StatusServiceUnavailable, "модель не настроена")
+			return
+		}
+		n := parseOnce(r.Context(), s, brain, tenantOf(r))
+		writeJSON(w, http.StatusOK, map[string]int{"parsed": n})
+	})
+
 	port := env("PORT", "8050")
 	srv := &http.Server{
 		Addr:              ":" + port,
@@ -206,4 +241,43 @@ func main() {
 	defer cancelShutdown()
 	_ = srv.Shutdown(shutdown)
 	slog.Info("остановлено")
+}
+
+// parseOnce разбирает одну ждущую запись. Возвращает число разобранных.
+//
+// По одной за проход намеренно: модель на этой машине одна на все продукты,
+// и очередь записей человека не та величина, ради которой стоит её занимать
+// пачками.
+func parseOnce(ctx context.Context, s *store.Store, brain *llm.Client, tenant string) int {
+	pending, err := s.PendingCaptures(ctx, tenant, 1)
+	if err != nil || len(pending) == 0 {
+		return 0
+	}
+	c := pending[0]
+
+	refs, err := s.ProjectRefs(ctx, tenant)
+	if err != nil {
+		return 0
+	}
+	projects := make([]llm.Project, 0, len(refs))
+	for _, r := range refs {
+		projects = append(projects, llm.Project{ID: r.ID, Title: r.Title})
+	}
+
+	parsed, raw, err := brain.Parse(ctx, c.Text, projects)
+	if err != nil {
+		// Причина сохраняется рядом с текстом: без неё «не разобралось»
+		// нечем объяснить и незачем повторять.
+		slog.Warn("разбор не удался", "запись", c.ID, "ошибка", err)
+		_ = s.FailParse(ctx, tenant, c.ID, err.Error())
+		return 0
+	}
+
+	if err := s.ApplyParse(ctx, tenant, c.ID, parsed.ProjectID, parsed.Title,
+		parsed.Type, parsed.OffsetHours, raw); err != nil {
+		slog.Error("запись разбора", "запись", c.ID, "ошибка", err)
+		return 0
+	}
+	slog.Info("запись разобрана", "запись", c.ID, "проект", parsed.ProjectID, "тип", parsed.Type)
+	return 1
 }

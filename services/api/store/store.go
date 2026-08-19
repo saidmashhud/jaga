@@ -307,3 +307,110 @@ func (s *Store) AddCapture(ctx context.Context, tenant, text string) (*Capture, 
 	c.CreatedAt = created.Format(time.RFC3339)
 	return &c, nil
 }
+
+// PendingCaptures — записи, ждущие разбора.
+func (s *Store) PendingCaptures(ctx context.Context, tenant string, limit int) ([]Capture, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, text FROM captures
+		WHERE tenant_id = $1 AND state = 'pending'
+		ORDER BY created_at LIMIT $2`, tenant, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := []Capture{}
+	for rows.Next() {
+		var c Capture
+		if err := rows.Scan(&c.ID, &c.Text); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
+// ProjectRefs — то, из чего модель выбирает проект.
+func (s *Store) ProjectRefs(ctx context.Context, tenant string) ([]struct{ ID, Title string }, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT id, title FROM projects WHERE tenant_id = $1 ORDER BY id`, tenant)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := []struct{ ID, Title string }{}
+	for rows.Next() {
+		var r struct{ ID, Title string }
+		if err := rows.Scan(&r.ID, &r.Title); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// ApplyParse записывает разбор и заводит из него событие.
+//
+// Одной транзакцией: запись, помеченная разобранной, но без события —
+// это молча потерянная мысль, а событие без пометки разобралось бы второй
+// раз при следующем проходе.
+//
+// Пустой projectID — не ошибка: модель честно не отнесла запись ни к одному
+// проекту. Событие тогда не заводится (у него нет проекта), а запись
+// помечается «оставлена как есть» и остаётся видна человеку.
+func (s *Store) ApplyParse(ctx context.Context, tenant, captureID, projectID, title, kind string, offsetHours int, raw string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	state := "parsed"
+	if projectID == "" {
+		state = "kept"
+	} else {
+		// Проект сверяется с базой, а не берётся на слово: модель может
+		// вернуть идентификатор, которого нет, и внешний ключ отверг бы всю
+		// транзакцию — вместе с пометкой о разборе.
+		var exists bool
+		if err := tx.QueryRowContext(ctx,
+			`SELECT EXISTS (SELECT 1 FROM projects WHERE tenant_id=$1 AND id=$2)`,
+			tenant, projectID).Scan(&exists); err != nil {
+			return err
+		}
+		if !exists {
+			projectID, state = "", "kept"
+		}
+	}
+
+	if projectID != "" {
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO events (tenant_id, id, project_id, title, type, intensity, occurred_at)
+			VALUES ($1, 'cap-' || $2::text, $3, $4, $5, 1, now() + make_interval(hours => $6))
+			ON CONFLICT DO NOTHING`,
+			tenant, captureID, projectID, title, kind, offsetHours); err != nil {
+			return fmt.Errorf("создание события из записи: %w", err)
+		}
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE captures SET state = $3, parsed = $4::jsonb, project_id = NULLIF($5,'')
+		WHERE tenant_id = $1 AND id = $2`,
+		tenant, captureID, state, raw, projectID); err != nil {
+		return fmt.Errorf("пометка записи: %w", err)
+	}
+
+	return tx.Commit()
+}
+
+// FailParse помечает запись неразобранной, сохраняя причину.
+//
+// Текст при этом не трогается: разбор — это то, что можно повторить, а
+// написанное человеком — нет.
+func (s *Store) FailParse(ctx context.Context, tenant, captureID, reason string) error {
+	_, err := s.db.ExecContext(ctx, `
+		UPDATE captures SET state = 'failed', parsed = to_jsonb($3::text)
+		WHERE tenant_id = $1 AND id = $2`, tenant, captureID, reason)
+	return err
+}

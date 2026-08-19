@@ -24,6 +24,16 @@ spec:
               value: "8050"
             - name: CORTEX_TENANT_ID
               value: demo
+            # Модель. Адрес и ключ лежат в секрете и созданы вне git:
+            # ключ в манифесте попал бы в историю репозитория навсегда.
+            # Не настроена — записи копятся неразобранными, и это рабочее
+            # состояние, а не поломка.
+            - name: LLM_URL
+              valueFrom: {secretKeyRef: {name: cortex-llm, key: LLM_URL, optional: true}}
+            - name: LLM_KEY
+              valueFrom: {secretKeyRef: {name: cortex-llm, key: LLM_KEY, optional: true}}
+            - name: LLM_MODEL
+              valueFrom: {secretKeyRef: {name: cortex-llm, key: LLM_MODEL, optional: true}}
           ports: [{containerPort: 8050}]
           # Проба бьёт в /health, который проверяет базу. Служба без базы не
           # умеет ничего, и «готов» в этом состоянии пускает на себя трафик,
