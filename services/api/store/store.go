@@ -13,6 +13,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"cortex/services/api/layout"
 )
 
 type Store struct{ db *sql.DB }
@@ -64,7 +66,33 @@ func (s *Store) Projects(ctx context.Context, tenant string) ([]Project, error) 
 		p.UpdatedAt = updated.Format(time.RFC3339)
 		out = append(out, p)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// Координаты считает раскладка, а не человек. Из данных берётся только
+	// статус — по нему выводится ось внимания; всё остальное выводится из
+	// связей. Колонки pos_* остаются как след прежнего способа и будут
+	// нужны, когда человек захочет закрепить проект руками.
+	conns, err := s.Connections(ctx, tenant)
+	if err != nil {
+		return nil, err
+	}
+	nodes := make([]layout.Node, 0, len(out))
+	for _, p := range out {
+		nodes = append(nodes, layout.Node{ID: p.ID, Status: p.Status})
+	}
+	edges := make([]layout.Edge, 0, len(conns))
+	for _, c := range conns {
+		edges = append(edges, layout.Edge{Source: c.SourceID, Target: c.TargetID, Strength: c.Strength})
+	}
+	placed := layout.Compute(nodes, edges)
+	for i := range out {
+		if pt, ok := placed[out[i].ID]; ok {
+			out[i].Position = Position{X: pt.X, Y: pt.Y, Z: pt.Z}
+		}
+	}
+	return out, nil
 }
 
 type Connection struct {
