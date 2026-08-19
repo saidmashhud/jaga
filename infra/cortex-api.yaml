@@ -34,6 +34,11 @@ spec:
               valueFrom: {secretKeyRef: {name: cortex-llm, key: LLM_KEY, optional: true}}
             - name: LLM_MODEL
               valueFrom: {secretKeyRef: {name: cortex-llm, key: LLM_MODEL, optional: true}}
+            # Ключ пространства. Не задан — служба отвечает без входа и
+            # говорит об этом в журнале: молчаливо открытая наружу база хуже,
+            # чем открытая и названная.
+            - name: CORTEX_KEY
+              valueFrom: {secretKeyRef: {name: cortex-key, key: CORTEX_KEY, optional: true}}
           ports: [{containerPort: 8050}]
           # Проба бьёт в /health, который проверяет базу. Служба без базы не
           # умеет ничего, и «готов» в этом состоянии пускает на себя трафик,
