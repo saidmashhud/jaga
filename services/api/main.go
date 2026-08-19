@@ -111,7 +111,31 @@ func main() {
 		}()
 	}
 
+	// Вход по ключу пространства. Ключ не задан — служба открыта, и она об
+	// этом говорит: молчаливо открытая наружу база хуже, чем названная.
+	spaceKey := env("CORTEX_KEY", "")
+	sess := newSessions()
+	if spaceKey == "" {
+		slog.Warn("CORTEX_KEY не задан — служба отвечает без входа")
+	}
+	guard := func(h http.HandlerFunc) http.HandlerFunc {
+		return requireSession(sess, spaceKey != "", h)
+	}
+
 	mux := http.NewServeMux()
+	mux.HandleFunc("POST /v1/session", handleSignIn(sess, spaceKey))
+	// Кто я: страница спрашивает это до отрисовки, чтобы решить, показать
+	// вход или сцену.
+	mux.HandleFunc("GET /v1/session", func(w http.ResponseWriter, r *http.Request) {
+		if spaceKey == "" {
+			writeJSON(w, http.StatusOK, map[string]bool{"signedIn": true, "keyRequired": false})
+			return
+		}
+		c, err := r.Cookie(sessionCookie)
+		writeJSON(w, http.StatusOK, map[string]bool{
+			"signedIn": err == nil && sess.valid(c.Value), "keyRequired": true,
+		})
+	})
 
 	// Проба проверяет базу, а не факт, что процесс жив. Служба без базы не
 	// умеет ничего, и отвечать «готов» в этом состоянии — значит пускать на
@@ -126,34 +150,34 @@ func main() {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 
-	mux.HandleFunc("GET /v1/projects", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /v1/projects", guard(func(w http.ResponseWriter, r *http.Request) {
 		list, err := s.Projects(r.Context(), tenantOf(r))
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"projects": list})
-	})
+	}))
 
-	mux.HandleFunc("GET /v1/connections", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /v1/connections", guard(func(w http.ResponseWriter, r *http.Request) {
 		list, err := s.Connections(r.Context(), tenantOf(r))
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"connections": list})
-	})
+	}))
 
-	mux.HandleFunc("GET /v1/focus", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /v1/focus", guard(func(w http.ResponseWriter, r *http.Request) {
 		list, err := s.FocusItems(r.Context(), tenantOf(r))
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"focus": list})
-	})
+	}))
 
-	mux.HandleFunc("POST /v1/focus/{id}/done", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("POST /v1/focus/{id}/done", guard(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Done bool `json:"done"`
 		}
@@ -167,12 +191,12 @@ func main() {
 		default:
 			writeJSON(w, http.StatusOK, map[string]bool{"completed": body.Done})
 		}
-	})
+	}))
 
 	// Окно задаётся часами в обе стороны: сцена показывает прошлое и будущее,
 	// и «последние N» для неё бессмысленны. По умолчанию — неделя назад и
 	// неделя вперёд, ровно то, что показывает дорожка.
-	mux.HandleFunc("GET /v1/events", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /v1/events", guard(func(w http.ResponseWriter, r *http.Request) {
 		list, err := s.Events(r.Context(), tenantOf(r),
 			intParam(r, "backHours", 24*7), intParam(r, "aheadHours", 24*7))
 		if err != nil {
@@ -180,18 +204,18 @@ func main() {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"events": list})
-	})
+	}))
 
-	mux.HandleFunc("GET /v1/lenses", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /v1/lenses", guard(func(w http.ResponseWriter, r *http.Request) {
 		list, err := s.Lenses(r.Context(), tenantOf(r))
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"lenses": list})
-	})
+	}))
 
-	mux.HandleFunc("POST /v1/captures", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("POST /v1/captures", guard(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Text string `json:"text"`
 		}
@@ -205,18 +229,18 @@ func main() {
 			return
 		}
 		writeJSON(w, http.StatusCreated, c)
-	})
+	}))
 
 	// Разбор по требованию: фоновый проход идёт раз в пятнадцать секунд, и
 	// ждать его при проверке незачем.
-	mux.HandleFunc("POST /v1/captures/parse", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("POST /v1/captures/parse", guard(func(w http.ResponseWriter, r *http.Request) {
 		if brain == nil {
 			writeErr(w, http.StatusServiceUnavailable, "модель не настроена")
 			return
 		}
 		n := parseOnce(r.Context(), s, brain, tenantOf(r))
 		writeJSON(w, http.StatusOK, map[string]int{"parsed": n})
-	})
+	}))
 
 	port := env("PORT", "8050")
 	srv := &http.Server{

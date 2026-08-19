@@ -1,0 +1,180 @@
+/* Титульная страница прибора.
+ *
+ * Композиция намеренно не по центру: панель прижата к левой трети, а справа
+ * остаётся пустое поле с сеткой. Центрированная карточка на тёмном фоне —
+ * самая узнаваемая форма «формы входа вообще», и она ничего не говорит о
+ * том, куда человек попал.
+ */
+
+.root {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: center;
+  min-height: 100dvh;
+  padding: clamp(1.5rem, 6vw, 5rem);
+  background: var(--color-bg-root);
+  color: var(--color-text-primary);
+  overflow: hidden;
+}
+
+/* Координатная сетка — та же, по которой раскладывается сцена. Уходит в
+   темноту к краям, чтобы не спорить с текстом. */
+.grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--color-border-subtle) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-border-subtle) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: radial-gradient(ellipse 80% 70% at 70% 45%, #000 0%, transparent 75%);
+  pointer-events: none;
+}
+
+.panel {
+  position: relative;
+  width: min(30rem, 100%);
+  animation: rise 0.5s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .panel { animation: none; }
+}
+
+.mark {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: clamp(2rem, 6vh, 4rem);
+}
+.mark b { display: block; font-size: 0.95rem; font-weight: 600; letter-spacing: -0.01em; }
+.mark em {
+  display: block;
+  font-family: var(--font-family-mono);
+  font-style: normal;
+  font-size: 0.62rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+/* Лампа прибора: единственное цветное пятно на экране входа. */
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--color-accent-violet);
+  box-shadow: 0 0 0 4px rgba(232, 163, 61, 0.14);
+}
+
+.title {
+  margin: 0 0 1.1rem;
+  font-size: clamp(2.1rem, 5.5vw, 3.4rem);
+  font-weight: 500;
+  line-height: 1.04;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+
+.lede {
+  margin: 0 0 clamp(2rem, 5vh, 3rem);
+  max-width: 34ch;
+  font-size: 0.98rem;
+  line-height: 1.55;
+  color: var(--color-text-secondary);
+}
+
+.form { display: grid; gap: 0.9rem; }
+
+.field { display: grid; gap: 0.45rem; }
+.label {
+  font-family: var(--font-family-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+/* Поле без рамки со всех сторон: только линия снизу, как графа на бланке.
+   Прямоугольник с рамкой и скруглением — та самая форма по умолчанию. */
+.field input {
+  width: 100%;
+  padding: 0.7rem 0 0.75rem;
+  border: 0;
+  border-bottom: 1px solid var(--color-border-default);
+  background: transparent;
+  color: var(--color-text-primary);
+  font-family: var(--font-family-mono);
+  font-size: 1.05rem;
+  letter-spacing: 0.14em;
+  transition: border-color 0.18s ease;
+}
+.field input::placeholder { color: var(--color-text-disabled); letter-spacing: 0.2em; }
+.field input:focus {
+  outline: none;
+  border-bottom-color: var(--color-accent-violet);
+}
+
+.submit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  justify-self: start;
+  margin-top: 0.6rem;
+  padding: 0.7rem 1.15rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+.submit:hover:not(:disabled) {
+  background: var(--color-accent-violet);
+  border-color: var(--color-accent-violet);
+  color: var(--color-text-on-accent);
+}
+.submit:disabled { opacity: 0.4; cursor: not-allowed; }
+.submit:focus-visible { outline: 2px solid var(--color-accent-violet); outline-offset: 2px; }
+
+/* Стрелка чертой, а не значком: у прибора указатель — линия. */
+.arrow {
+  width: 1.1rem;
+  height: 1px;
+  background: currentColor;
+  position: relative;
+  transition: width 0.18s ease;
+}
+.arrow::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: -2px;
+  width: 5px;
+  height: 5px;
+  border-top: 1px solid currentColor;
+  border-right: 1px solid currentColor;
+  transform: rotate(45deg);
+}
+.submit:hover:not(:disabled) .arrow { width: 1.6rem; }
+@media (prefers-reduced-motion: reduce) {
+  .arrow, .submit { transition: none; }
+}
+
+.err {
+  margin: 0;
+  font-family: var(--font-family-mono);
+  font-size: 0.75rem;
+  color: var(--color-accent-orange);
+}
+
+.foot {
+  margin: clamp(2rem, 5vh, 3rem) 0 0;
+  max-width: 38ch;
+  font-size: 0.78rem;
+  line-height: 1.6;
+  color: var(--color-text-tertiary);
+}

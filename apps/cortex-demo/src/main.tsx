@@ -1,9 +1,18 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import '@fontsource-variable/inter';
+// Голос прибора и голос текста — разные гарнитуры.
+//
+// Inter здесь был не выбором, а значением по умолчанию: он стоит в половине
+// интерфейсов и не говорит ни о чём. JetBrains Mono ведёт служебную речь —
+// подписи, числа, состояния; Golos Text нарисован под кириллицу и читается
+// теплее, чем гротески, сделанные под латиницу с кириллицей вдогонку.
+import '@fontsource-variable/golos-text';
+import '@fontsource/jetbrains-mono/400.css';
+import '@fontsource/jetbrains-mono/500.css';
 import '@cortex/tokens/tokens.css';
 import './app/global.css';
 import { App } from './app/App';
+import { SignIn } from './features/auth/SignIn';
 import { loadFromApi, startRefresh, toActivity, toTrackEvent } from './services/cortex-api';
 import { hydrate } from './services/mock-cortex-service';
 
@@ -17,7 +26,32 @@ import { hydrate } from './services/mock-cortex-service';
  * Служба недоступна — работаем на моках. Стенд без бэкенда обязан
  * открываться: это его нормальное состояние на сегодня, а не поломка.
  */
+/** Нужен ли вход и выполнен ли он. */
+async function session(): Promise<{ required: boolean; signedIn: boolean }> {
+  try {
+    const r = await fetch('/v1/session', { cache: 'no-store' });
+    if (!r.ok) return { required: false, signedIn: true };
+    const d = await r.json();
+    return { required: Boolean(d.keyRequired), signedIn: Boolean(d.signedIn) };
+  } catch {
+    // Служба недоступна — работаем на образце, вход не при чём.
+    return { required: false, signedIn: true };
+  }
+}
+
 async function boot() {
+  const who = await session();
+  if (who.required && !who.signedIn) {
+    // Данные не грузим вовсе: служба их и не отдаст, а показать сцену на
+    // образце за формой входа значило бы соврать о том, что за ней лежит.
+    createRoot(document.getElementById('root')!).render(
+      <StrictMode>
+        <SignIn onDone={() => window.location.reload()} />
+      </StrictMode>,
+    );
+    return;
+  }
+
   const loaded = await loadFromApi();
   if (loaded) {
     const { projects, connections, focus, lenses, events } = loaded.data;
