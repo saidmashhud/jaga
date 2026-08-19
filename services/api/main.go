@@ -200,18 +200,25 @@ func main() {
 	}))
 
 	mux.HandleFunc("POST /v1/focus/{id}/done", guard(func(w http.ResponseWriter, r *http.Request) {
+		// Раньше здесь стояло `_ = json.Decode(...)` — «чтобы не городить
+		// ветку». Ветка нужна: при кривом теле body.Done оставался false, и
+		// запрос молча СНИМАЛ отметку «сделано», отвечая при этом 200.
+		// Человек терял отметку и не узнавал об этом.
 		var body struct {
-			Done bool `json:"done"`
+			Done *bool `json:"done"`
 		}
-		_ = json.NewDecoder(r.Body).Decode(&body)
-		err := s.SetFocusDone(r.Context(), tenantOf(r), r.PathValue("id"), body.Done)
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Done == nil {
+			writeErr(w, http.StatusBadRequest, "нужно поле done: true или false")
+			return
+		}
+		err := s.SetFocusDone(r.Context(), tenantOf(r), r.PathValue("id"), *body.Done)
 		switch {
 		case errors.Is(err, store.ErrNotFound):
 			writeErr(w, http.StatusNotFound, "задача не найдена")
 		case err != nil:
 			writeErr(w, http.StatusInternalServerError, err.Error())
 		default:
-			writeJSON(w, http.StatusOK, map[string]bool{"completed": body.Done})
+			writeJSON(w, http.StatusOK, map[string]bool{"completed": *body.Done})
 		}
 	}))
 
@@ -263,6 +270,18 @@ func main() {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"lenses": list})
+	}))
+
+	// Записи, которые модель не отнесла ни к одному проекту, ложились в
+	// базу и не показывались нигде: маршрута чтения не было вовсе. Я писал,
+	// что «неотнесённая запись видна человеку» — она не была видна никому.
+	mux.HandleFunc("GET /v1/captures", guard(func(w http.ResponseWriter, r *http.Request) {
+		list, err := s.LooseCaptures(r.Context(), tenantOf(r), 50)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"captures": list})
 	}))
 
 	mux.HandleFunc("POST /v1/captures", guard(func(w http.ResponseWriter, r *http.Request) {

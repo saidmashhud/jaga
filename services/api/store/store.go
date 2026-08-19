@@ -586,3 +586,33 @@ func (s *Store) CreateConnection(ctx context.Context, tenant string, c NewConnec
 	}
 	return id, nil
 }
+
+// LooseCaptures — записи, оставшиеся без проекта.
+//
+// Модель честно отказалась отнести их куда-либо (state='kept') либо не смогла
+// разобрать (state='failed'). И то и другое человек обязан видеть: запись,
+// которая легла в базу и не показывается нигде, потеряна вернее, чем если бы
+// её не приняли вовсе.
+func (s *Store) LooseCaptures(ctx context.Context, tenant string, limit int) ([]Capture, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, text, state, created_at
+		FROM captures
+		WHERE tenant_id = $1 AND state IN ('kept', 'failed', 'pending')
+		ORDER BY created_at DESC LIMIT $2`, tenant, limit)
+	if err != nil {
+		return nil, fmt.Errorf("выборка записей: %w", err)
+	}
+	defer rows.Close()
+
+	out := []Capture{}
+	for rows.Next() {
+		var c Capture
+		var at time.Time
+		if err := rows.Scan(&c.ID, &c.Text, &c.State, &at); err != nil {
+			return nil, err
+		}
+		c.CreatedAt = at.Format(time.RFC3339)
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}

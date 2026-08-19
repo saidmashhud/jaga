@@ -19,6 +19,7 @@ const IMPACT: Record<string, string> = { high: 'Высокий эффект', me
 function Focus() {
   const items = mockCortexService.getFocusItems();
   const [done, setDone] = useState<Record<string, boolean>>({});
+  const [failed, setFailed] = useState<Record<string, boolean>>({});
 
   async function toggle(id: string, next: boolean) {
     setDone((d) => ({ ...d, [id]: next }));
@@ -27,13 +28,22 @@ function Focus() {
     // в очередь. Ошибку покажет следующая загрузка — цена расхождения
     // здесь ниже, чем цена ожидания.
     try {
-      await fetch(`/v1/focus/${encodeURIComponent(id)}/done`, {
+      const r = await fetch(`/v1/focus/${encodeURIComponent(id)}/done`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ done: next }),
       });
+      // Отказ не должен выглядеть успехом. Прежний расчёт «ошибку покажет
+      // следующая загрузка» держался на опросе, который при истёкшей сессии
+      // не загружал ничего: человек отмечал пять дел, список пустел, а в базе
+      // не менялось ни строки.
+      if (r.status === 401) {
+        window.location.reload();
+        return;
+      }
+      if (!r.ok) setFailed((f) => ({ ...f, [id]: true }));
     } catch {
-      /* остаёмся с отметкой на экране */
+      setFailed((f) => ({ ...f, [id]: true }));
     }
   }
 
@@ -61,7 +71,10 @@ function Focus() {
                 <span>
                   <b>{i.title}</b>
                   {i.description && <em>{i.description}</em>}
-                  <small>{IMPACT[i.impact] ?? i.impact}</small>
+                  <small>
+                    {IMPACT[i.impact] ?? i.impact}
+                    {failed[i.id] && ' · не сохранилось'}
+                  </small>
                 </span>
               </label>
             </li>

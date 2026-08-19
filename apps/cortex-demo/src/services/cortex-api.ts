@@ -35,6 +35,14 @@ interface ApiEvent {
   occurredAt: string;
 }
 
+/** Сессия кончилась. Отдельный вид отказа: лечится входом, а не ожиданием. */
+export class SessionExpired extends Error {
+  constructor() {
+    super('сессия истекла');
+    this.name = 'SessionExpired';
+  }
+}
+
 export interface CortexData {
   projects: Project[];
   connections: ProjectConnection[];
@@ -77,6 +85,10 @@ export async function loadFromApi(): Promise<{ data: CortexData; tenant: string 
       headers: { 'X-Tenant-Id': tenant },
       cache: 'no-store',
     });
+    // Истёкшая сессия — не «служба недоступна». Раньше 401 попадал в тот же
+    // catch, что и обрыв связи, и предупреждение в консоли врало: говорило
+    // «служба недоступна», хотя служба жива и просто не пускает.
+    if (r.status === 401) throw new SessionExpired();
     if (!r.ok) throw new Error(`${path}: ${r.status}`);
     const body = await r.json();
     return body[key] as T;
@@ -101,6 +113,9 @@ export async function loadFromApi(): Promise<{ data: CortexData; tenant: string 
 
     return { data: { projects, connections, focus, lenses, events }, tenant };
   } catch (e) {
+    // Истёкшую сессию пробрасываем наверх: там решат показать вход.
+    // Проглотить её здесь значило бы оставить экран замёрзшим навсегда.
+    if (e instanceof SessionExpired) throw e;
     console.warn('[cortex] служба недоступна, работаем на моках:', e);
     return null;
   }
@@ -162,13 +177,27 @@ export async function sendCapture(text: string): Promise<boolean> {
  * — компромисс между «увидел вскоре» и «не долбим службу»; страница, скрытая
  * от глаз, не опрашивает вовсе.
  */
-export function startRefresh(apply: (d: CortexData) => void, everyMs = 30000): () => void {
+export function startRefresh(
+  apply: (d: CortexData) => void,
+  onExpired: () => void,
+  everyMs = 30000,
+): () => void {
   let stopped = false;
 
   const tick = async () => {
     if (stopped || document.hidden) return;
-    const loaded = await loadFromApi();
-    if (loaded && !stopped) apply(loaded.data);
+    try {
+      const loaded = await loadFromApi();
+      if (loaded && !stopped) apply(loaded.data);
+    } catch (e) {
+      if (e instanceof SessionExpired) {
+        // Опрос останавливаем: он всё равно будет получать отказ, а экран
+        // тем временем показывал бы срез на момент истечения как свежий.
+        // Прибор, уверенно показывающий вчерашнее, хуже прибора молчащего.
+        stopped = true;
+        onExpired();
+      }
+    }
   };
 
   const timer = window.setInterval(() => void tick(), everyMs);

@@ -70,16 +70,22 @@ async function boot() {
   // Дальше данные обновляются сами: запись из композера становится событием
   // только после разбора моделью, а он идёт минутами.
   if (loaded) {
-    startRefresh((d) => {
+    startRefresh(
+      (d) => {
       hydrate({
         projects: d.projects,
         connections: d.connections,
         focus: d.focus,
         lenses: d.lenses,
         activities: d.events.map(toActivity),
-        trackEvents: d.events.map((e) => toTrackEvent(e, 24 * 7)),
-      });
-    });
+          trackEvents: d.events.map((e) => toTrackEvent(e, 24 * 7)),
+        });
+      },
+      // Сессия кончилась — показываем вход, а не замерший экран. Перезагрузка
+      // здесь честнее подмены разметки: страница спросит /v1/session заново и
+      // сама решит, что показать.
+      () => window.location.reload(),
+    );
   }
 
   createRoot(document.getElementById('root')!).render(
