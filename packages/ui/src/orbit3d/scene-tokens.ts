@@ -71,14 +71,17 @@ export const statusMaterial: Record<SemanticStatus, StatusMaterial> = {
 export const sceneColors = {
   background: rawColors.bgCanvas,
   core: rawColors.accentViolet,
-  coreEmissive: '#9b7bff',
+  // Ядро — это «Вы / Сейчас», а не данные, и светит оно лампой прибора.
+  // Прежний сиреневый пережил смену палитры и остался самым крупным
+  // фиолетовым пятном на экране, где фиолетового больше нет.
+  coreEmissive: '#f0b45c',
   textPrimary: rawColors.textPrimary,
   textSecondary: rawColors.textSecondary,
 } as const;
 
 /** Connection line colour per relation type (mirrors the SVG scene). */
 export const connectionColor3d: Record<string, string> = {
-  team: '#9b7bff',
+  team: '#c9a227',
   finance: rawColors.stateStable,
   dependency: rawColors.stateAttention,
   client: rawColors.stateDecision,

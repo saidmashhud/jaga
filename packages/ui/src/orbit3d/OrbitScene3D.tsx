@@ -173,7 +173,10 @@ export function OrbitScene3D({
           />
           <Lightformer
             form="ring"
-            color="#7657ff"
+            // Цвет ядра берётся из токена, а не вписан числом: вписанный пережил
+            // смену палитры и остался единственным фиолетовым пятном на экране,
+            // где фиолетового больше нет нигде.
+            color="var(--color-accent-violet)"
             intensity={42}
             onUpdate={(self) => self.lookAt(0, 0, 0)}
             position={[10, 10, 0]}

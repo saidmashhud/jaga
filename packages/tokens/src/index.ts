@@ -62,7 +62,7 @@ export const rawColors = {
   textPrimary: '#F4F7FF',
   textSecondary: '#9DA8C1',
   textTertiary: '#66718C',
-  accentViolet: '#7657FF',
+  accentViolet: '#E8A33D',
   accentBlue: '#3597FF',
   accentCyan: '#37D9FF',
   accentGreen: '#75ED6F',
