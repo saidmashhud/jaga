@@ -5,7 +5,7 @@
   align-items: flex-start;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4) var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   border: 1px solid var(--color-border-subtle);
   background: var(--color-bg-surface);
   overflow: hidden;
@@ -26,15 +26,15 @@
   box-shadow: 0 0 18px color-mix(in srgb, var(--project-color) 18%, transparent);
 }
 
-.accent {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background: var(--project-color);
-  box-shadow: 0 0 10px color-mix(in srgb, var(--project-color) 60%, transparent);
-}
+/* Цветной рейки слева больше нет.
+ *
+ * Она отмечала проект — но его название в той же карточке уже написано его
+ * цветом, и вторая метка того же самого ничего не добавляла. Зато «карточка
+ * со скруглением и акцентной полосой слева» — самая узнаваемая форма
+ * интерфейса, сделанного по умолчанию.
+ *
+ * Принадлежность к проекту читается по названию; выделенная карточка
+ * отличается рамкой в цвет проекта — этого хватает. */
 
 /* custom checkbox */
 .check {

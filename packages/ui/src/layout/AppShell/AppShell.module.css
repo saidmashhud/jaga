@@ -46,8 +46,14 @@
 
 .composer {
   flex-shrink: 0;
-  padding: 0 var(--space-6) var(--space-5);
+  /* Те же поля, что у дорожки: низ экрана — одна полоса прибора, а не две
+     строки, живущие каждая по своим краям. */
+  padding: var(--space-3) var(--space-6) var(--space-5);
   z-index: var(--layer-scene);
+}
+
+@media (max-width: 1439px) {
+  .composer { padding-inline: var(--space-4); }
 }
 
 .aside {

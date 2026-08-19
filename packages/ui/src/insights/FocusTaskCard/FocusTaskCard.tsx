@@ -66,7 +66,6 @@ export function FocusTaskCard({
       style={{ '--project-color': projectColor, ...style } as React.CSSProperties}
       {...rest}
     >
-      <span className={styles.accent} aria-hidden="true" />
       <label className={styles.check} onClick={(event) => event.stopPropagation()}>
         <input
           type="checkbox"

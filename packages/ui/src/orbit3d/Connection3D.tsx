@@ -55,7 +55,9 @@ export function Connection3D({
       opacity: number;
       dashOffset?: number;
     };
-    material.opacity = dimmed ? 0.05 : selected ? 0.95 : 0.42;
+    // В покое связь тише: она объясняет расстановку, а не спорит с ней.
+      // Прежние 0.42 делали линию заметнее сферы, к которой она ведёт.
+      material.opacity = dimmed ? 0.04 : selected ? 0.9 : 0.26;
     if (animated && !reducedMotion && material.dashOffset !== undefined) {
       material.dashOffset = -state.clock.elapsedTime * 0.35;
     }
@@ -67,9 +69,19 @@ export function Connection3D({
       start={[0, 0, 0]}
       end={[0, 0, 0]}
       color={color}
-      lineWidth={selected ? strength * 1.5 + 1 : strength * 1.1}
+      lineWidth={selected ? strength * 1.2 + 0.8 : strength * 0.7}
       transparent
-      opacity={0.42}
+      opacity={0.26}
+      // Прозрачная линия не должна писать в буфер глубины. Отсюда и было
+      // мерцание: линия писала глубину, сфера рядом — тоже, и при вращении
+      // камеры порядок их отрисовки перещёлкивался кадр за кадром. Глаз
+      // видел это как дрожание связи между планетами.
+      //
+      // Порядок задан явно: связи рисуются раньше сфер и не спорят с ними
+      // за право быть впереди — иначе сортировка прозрачного решает ничью
+      // заново на каждом кадре.
+      depthWrite={false}
+      renderOrder={-1}
       dashed={animated && !reducedMotion}
       dashScale={14}
       dashSize={0.35}
