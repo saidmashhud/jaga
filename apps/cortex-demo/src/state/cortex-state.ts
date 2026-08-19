@@ -63,7 +63,10 @@ export type CortexAction =
   | { type: 'set-draft'; value: string }
   | { type: 'composer-processing'; value: boolean }
   | { type: 'composer-listening'; value: boolean }
-  | { type: 'composer-added'; event: ActivityEvent; confirmation: string }
+  // Событие может отсутствовать: на живых данных запись сначала ложится в
+  // базу и ждёт разбора, и до разбора её нечем поставить в ленту — ни
+  // проекта, ни времени события у неё ещё нет.
+  | { type: 'composer-added'; event: ActivityEvent | null; confirmation: string }
   | { type: 'set-search'; value: string }
   | { type: 'search-listening'; value: boolean }
   | { type: 'toggle-ai-mode' }
@@ -113,9 +116,13 @@ export function cortexReducer(state: CortexState, action: CortexAction): CortexS
     case 'composer-added':
       return {
         ...state,
-        addedActivities: [action.event, ...state.addedActivities],
-        freshActivityId: action.event.id,
-        composerDraft: '',
+        addedActivities: action.event
+          ? [action.event, ...state.addedActivities]
+          : state.addedActivities,
+        freshActivityId: action.event?.id ?? state.freshActivityId,
+        // Черновик очищается только когда запись принята: иначе при отказе
+        // службы человек теряет написанное и не понимает, куда оно делось.
+        composerDraft: action.event === null && action.confirmation.startsWith('Не удалось') ? state.composerDraft : '',
         composerProcessing: false,
         toast: action.confirmation,
       };

@@ -7,7 +7,8 @@ import {
   type Dispatch,
   type ReactNode,
 } from 'react';
-import { mockCortexService } from '../services/mock-cortex-service';
+import { isLive, mockCortexService } from '../services/mock-cortex-service';
+import { sendCapture } from '../services/cortex-api';
 import {
   cortexReducer,
   initialCortexState,
@@ -37,15 +38,51 @@ const modeLabels: Record<Exclude<NavigationMode, 'orbit'>, string> = {
 export function CortexProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(cortexReducer, initialCortexState);
 
+  /**
+   * Запись из композера.
+   *
+   * На живых данных она уходит в базу как есть и там ждёт разбора: разбирать
+   * будет модель, она ошибается и бывает недоступна, и терять написанное
+   * человеком из-за чужой недоступности нельзя. Поэтому сохранение и разбор
+   * разведены — сохранение обязано состояться всегда.
+   *
+   * Пока разбора нет, экран честно говорит «сохранено», а не придумывает
+   * проект и срок, как это делал мок. Обещать разбор, которого не случилось,
+   * хуже, чем не обещать ничего.
+   */
   const submitComposer = useCallback(
     (text: string) => {
       if (!text.trim()) return;
       dispatch({ type: 'composer-processing', value: true });
-      void mockCortexService
-        .submitContext(text, state.selectedProjectId)
-        .then(({ event, confirmation }) => {
-          dispatch({ type: 'composer-added', event, confirmation });
+
+      if (!isLive()) {
+        void mockCortexService
+          .submitContext(text, state.selectedProjectId)
+          .then(({ event, confirmation }) => {
+            dispatch({ type: 'composer-added', event, confirmation });
+          });
+        return;
+      }
+
+      void sendCapture(text).then((capture) => {
+        if (!capture) {
+          // Отказ службы не должен выглядеть как успех: человек напишет
+          // второй раз и потеряет первую запись, решив, что не отправилось.
+          dispatch({
+            type: 'composer-added',
+            event: null,
+            confirmation: 'Не удалось сохранить — попробуйте ещё раз.',
+          });
+          return;
+        }
+        dispatch({
+          type: 'composer-added',
+          // Событием запись станет после разбора; до тех пор её нечем
+          // поставить на дорожку — ни проекта, ни времени события у неё нет.
+          event: null,
+          confirmation: 'Сохранено. Разберём в задачу, когда подключим разбор.',
         });
+      });
     },
     [state.selectedProjectId],
   );
