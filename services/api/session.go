@@ -23,14 +23,42 @@ import (
 // Сессии в памяти: их единицы, живут сутки, и заводить ради них таблицу —
 // больше кода, чем пользы. Перезапуск службы разлогинивает, и это честная
 // цена: перезапуск здесь редкое событие, а не рабочий режим.
-type sessions struct {
-	mu   sync.RWMutex
-	live map[string]time.Time
+type session struct {
+	who     string
+	expires time.Time
 }
 
-func newSessions() *sessions { return &sessions{live: map[string]time.Time{}} }
+type sessions struct {
+	mu   sync.RWMutex
+	live map[string]session
+}
 
-func (s *sessions) issue(ttl time.Duration) string {
+func newSessions() *sessions { return &sessions{live: map[string]session{}} }
+
+// parseKeys разбирает список именованных ключей вида «Имя:ключ,Имя:ключ».
+//
+// Имя нужно не для красоты: один ключ на всех отвечает на вопрос «пустили ли»,
+// но не на «кто вошёл», а второй вопрос и есть тот, ради которого заводят
+// доступ. Имя ложится в сессию и дальше сможет попасть в журнал действий.
+func parseKeys(raw string) map[string]string {
+	out := map[string]string{}
+	for _, pair := range strings.Split(raw, ",") {
+		pair = strings.TrimSpace(pair)
+		if pair == "" {
+			continue
+		}
+		// Разделитель ищем справа: имя может содержать двоеточие, ключ — нет,
+		// потому что мы его сами и порождаем.
+		i := strings.LastIndex(pair, ":")
+		if i <= 0 || i == len(pair)-1 {
+			continue
+		}
+		out[strings.TrimSpace(pair[i+1:])] = strings.TrimSpace(pair[:i])
+	}
+	return out
+}
+
+func (s *sessions) issue(who string, ttl time.Duration) string {
 	raw := make([]byte, 32)
 	_, _ = rand.Read(raw)
 	tok := base64.RawURLEncoding.EncodeToString(raw)
@@ -41,24 +69,33 @@ func (s *sessions) issue(ttl time.Duration) string {
 	// Попутно чистим истёкшие: отдельная задача по расписанию ради карты в
 	// десяток строк избыточна, а без уборки она растёт вечно.
 	now := time.Now()
-	for k, exp := range s.live {
-		if exp.Before(now) {
+	for k, v := range s.live {
+		if v.expires.Before(now) {
 			delete(s.live, k)
 		}
 	}
-	s.live[hex.EncodeToString(sum[:])] = now.Add(ttl)
+	s.live[hex.EncodeToString(sum[:])] = session{who: who, expires: now.Add(ttl)}
 	return tok
 }
 
-func (s *sessions) valid(tok string) bool {
+// who возвращает имя вошедшего и признак живой сессии.
+func (s *sessions) who(tok string) (string, bool) {
 	if tok == "" {
-		return false
+		return "", false
 	}
 	sum := sha256.Sum256([]byte(tok))
 	s.mu.RLock()
-	exp, ok := s.live[hex.EncodeToString(sum[:])]
+	v, ok := s.live[hex.EncodeToString(sum[:])]
 	s.mu.RUnlock()
-	return ok && exp.After(time.Now())
+	if !ok || v.expires.Before(time.Now()) {
+		return "", false
+	}
+	return v.who, true
+}
+
+func (s *sessions) valid(tok string) bool {
+	_, ok := s.who(tok)
+	return ok
 }
 
 const sessionCookie = "cortex_session"
@@ -82,7 +119,7 @@ func requireSession(s *sessions, keySet bool, next http.HandlerFunc) http.Handle
 	}
 }
 
-func handleSignIn(s *sessions, key string) http.HandlerFunc {
+func handleSignIn(s *sessions, keys map[string]string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Key string `json:"key"`
@@ -91,14 +128,24 @@ func handleSignIn(s *sessions, key string) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "неразобранное тело запроса")
 			return
 		}
-		// Сравнение постоянного времени: обычное прекращается на первом
-		// несовпавшем знаке, и по времени ответа ключ подбирается посимвольно.
-		if subtle.ConstantTimeCompare([]byte(strings.TrimSpace(body.Key)), []byte(key)) != 1 {
+		// Перебираем все ключи целиком, не прерываясь на совпавшем: выход по
+		// первому попаданию выдал бы по времени ответа, сколько ключей
+		// проверено до него. Сравнение тоже постоянного времени — обычное
+		// прекращается на первом несовпавшем знаке, и ключ подбирается
+		// посимвольно.
+		given := strings.TrimSpace(body.Key)
+		matched := ""
+		for k, name := range keys {
+			if subtle.ConstantTimeCompare([]byte(given), []byte(k)) == 1 {
+				matched = name
+			}
+		}
+		if matched == "" {
 			writeErr(w, http.StatusUnauthorized, "ключ не подошёл")
 			return
 		}
 
-		tok := s.issue(24 * time.Hour)
+		tok := s.issue(matched, 24*time.Hour)
 		http.SetCookie(w, &http.Cookie{
 			Name:  sessionCookie,
 			Value: tok,
@@ -110,6 +157,6 @@ func handleSignIn(s *sessions, key string) http.HandlerFunc {
 			SameSite: http.SameSiteLaxMode,
 			MaxAge:   int((24 * time.Hour).Seconds()),
 		})
-		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "who": matched})
 	}
 }

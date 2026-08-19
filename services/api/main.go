@@ -113,27 +113,37 @@ func main() {
 
 	// Вход по ключу пространства. Ключ не задан — служба открыта, и она об
 	// этом говорит: молчаливо открытая наружу база хуже, чем названная.
-	spaceKey := env("CORTEX_KEY", "")
+	keys := parseKeys(env("CORTEX_KEYS", ""))
 	sess := newSessions()
-	if spaceKey == "" {
-		slog.Warn("CORTEX_KEY не задан — служба отвечает без входа")
+	if len(keys) == 0 {
+		slog.Warn("CORTEX_KEYS не задан — служба отвечает без входа")
+	} else {
+		// Имена в журнал, ключи — нет: журналы читают и пересылают.
+		names := make([]string, 0, len(keys))
+		for _, n := range keys {
+			names = append(names, n)
+		}
+		slog.Info("вход по ключу", "имён", names)
 	}
 	guard := func(h http.HandlerFunc) http.HandlerFunc {
-		return requireSession(sess, spaceKey != "", h)
+		return requireSession(sess, len(keys) > 0, h)
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /v1/session", handleSignIn(sess, spaceKey))
+	mux.HandleFunc("POST /v1/session", handleSignIn(sess, keys))
 	// Кто я: страница спрашивает это до отрисовки, чтобы решить, показать
 	// вход или сцену.
 	mux.HandleFunc("GET /v1/session", func(w http.ResponseWriter, r *http.Request) {
-		if spaceKey == "" {
-			writeJSON(w, http.StatusOK, map[string]bool{"signedIn": true, "keyRequired": false})
+		if len(keys) == 0 {
+			writeJSON(w, http.StatusOK, map[string]any{"signedIn": true, "keyRequired": false})
 			return
 		}
-		c, err := r.Cookie(sessionCookie)
-		writeJSON(w, http.StatusOK, map[string]bool{
-			"signedIn": err == nil && sess.valid(c.Value), "keyRequired": true,
+		who := ""
+		if c, err := r.Cookie(sessionCookie); err == nil {
+			who, _ = sess.who(c.Value)
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"signedIn": who != "", "keyRequired": true, "who": who,
 		})
 	})
 

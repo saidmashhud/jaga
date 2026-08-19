@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { isLive, mockCortexService } from '../../services/mock-cortex-service';
 import { useCortex } from '../../state/CortexProvider';
 import styles from './ModePanel.module.css';
@@ -121,6 +121,13 @@ function Decision() {
 
 function Settings() {
   const live = isLive();
+  const [who, setWho] = useState<string>('');
+  useEffect(() => {
+    void fetch('/v1/session', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setWho(d?.who ?? ''))
+      .catch(() => undefined);
+  }, []);
   return (
     <>
       <h2 className={styles.title}>Настройки</h2>
@@ -129,6 +136,12 @@ function Settings() {
         полезно: без этого не отличить пустую базу от подменённых данных.
       </p>
       <dl className={styles.facts}>
+        {who && (
+          <div>
+            <dt>Вошли как</dt>
+            <dd>{who}</dd>
+          </div>
+        )}
         <div>
           <dt>Источник данных</dt>
           <dd>{live ? 'Служба Cortex' : 'Встроенный образец'}</dd>
