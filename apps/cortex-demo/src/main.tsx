@@ -4,7 +4,7 @@ import '@fontsource-variable/inter';
 import '@cortex/tokens/tokens.css';
 import './app/global.css';
 import { App } from './app/App';
-import { loadFromApi, toActivity, toTrackEvent } from './services/cortex-api';
+import { loadFromApi, startRefresh, toActivity, toTrackEvent } from './services/cortex-api';
 import { hydrate } from './services/mock-cortex-service';
 
 /**
@@ -30,6 +30,21 @@ async function boot() {
       // Окно дорожки — неделя в обе стороны, ровно то, что показывает шкала
       // по умолчанию. Процент считается здесь, из времени события.
       trackEvents: events.map((e) => toTrackEvent(e, 24 * 7)),
+    });
+  }
+
+  // Дальше данные обновляются сами: запись из композера становится событием
+  // только после разбора моделью, а он идёт минутами.
+  if (loaded) {
+    startRefresh((d) => {
+      hydrate({
+        projects: d.projects,
+        connections: d.connections,
+        focus: d.focus,
+        lenses: d.lenses,
+        activities: d.events.map(toActivity),
+        trackEvents: d.events.map((e) => toTrackEvent(e, 24 * 7)),
+      });
     });
   }
 

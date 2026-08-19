@@ -4,10 +4,12 @@ import {
   useContext,
   useMemo,
   useReducer,
+  useEffect,
+  useState,
   type Dispatch,
   type ReactNode,
 } from 'react';
-import { isLive, mockCortexService } from '../services/mock-cortex-service';
+import { isLive, mockCortexService, onData } from '../services/mock-cortex-service';
 import { sendCapture } from '../services/cortex-api';
 import {
   cortexReducer,
@@ -30,6 +32,12 @@ const CortexContext = createContext<CortexContextValue | null>(null);
 
 export function CortexProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(cortexReducer, initialCortexState);
+
+  // Данные лежат вне React — их обновляет опрос службы. Счётчик существует
+  // ровно затем, чтобы дерево перерисовалось, когда они сменились: без него
+  // разобранная запись легла бы в память и не появилась на экране.
+  const [dataVersion, setDataVersion] = useState(0);
+  useEffect(() => onData(() => setDataVersion((v) => v + 1)), []);
 
   /**
    * Запись из композера.
@@ -89,7 +97,8 @@ export function CortexProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(
     () => ({ state, dispatch, submitComposer, setNavigationMode }),
-    [state, submitComposer, setNavigationMode],
+    // dataVersion в зависимостях намеренно: он и есть сигнал «данные другие».
+    [state, submitComposer, setNavigationMode, dataVersion],
   );
 
   return <CortexContext.Provider value={value}>{children}</CortexContext.Provider>;

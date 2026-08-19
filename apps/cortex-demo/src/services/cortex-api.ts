@@ -153,3 +153,33 @@ export async function sendCapture(text: string): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Периодическое обновление.
+ *
+ * Разбор записи занимает минуты, и без опроса человек не увидит её никогда:
+ * данные загружаются при старте, а событие появляется потом. Раз в полминуты
+ * — компромисс между «увидел вскоре» и «не долбим службу»; страница, скрытая
+ * от глаз, не опрашивает вовсе.
+ */
+export function startRefresh(apply: (d: CortexData) => void, everyMs = 30000): () => void {
+  let stopped = false;
+
+  const tick = async () => {
+    if (stopped || document.hidden) return;
+    const loaded = await loadFromApi();
+    if (loaded && !stopped) apply(loaded.data);
+  };
+
+  const timer = window.setInterval(() => void tick(), everyMs);
+  // Возврат на вкладку — повод обновиться немедленно: человек ушёл, вернулся
+  // и вправе увидеть свежее, а не ждать следующего оборота таймера.
+  const onShow = () => { if (!document.hidden) void tick(); };
+  document.addEventListener('visibilitychange', onShow);
+
+  return () => {
+    stopped = true;
+    window.clearInterval(timer);
+    document.removeEventListener('visibilitychange', onShow);
+  };
+}
