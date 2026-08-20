@@ -23,6 +23,7 @@ import (
 
 	_ "github.com/lib/pq"
 
+	"cortex/services/api/layout"
 	"cortex/services/api/llm"
 	"cortex/services/api/store"
 )
@@ -216,6 +217,23 @@ func main() {
 		}
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
+
+	// Устройство сцены: пояса внимания и размеры логического поля.
+	//
+	// Отдаёт служба, а не хранит страница. Радиусы поясов — это то же самое,
+	// по чему раскладка ставит узлы; своя таблица на странице разошлась бы с
+	// этой при первом же новом состоянии, и узел рисовался бы не на своём
+	// кольце. Так уже вышло с цветами связей: два словаря, один тип, разные
+	// цвета в двух сценах.
+	mux.HandleFunc("GET /v1/scene", guard(func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"width":          layout.SceneWidth,
+			"height":         layout.SceneHeight,
+			"center":         map[string]int{"x": layout.CenterX, "y": layout.CenterY},
+			"decisionRadius": layout.DecisionRadius,
+			"belts":          layout.Belts(),
+		})
+	}))
 
 	mux.HandleFunc("GET /v1/projects", guard(func(w http.ResponseWriter, r *http.Request) {
 		list, err := s.Projects(r.Context(), tenantOf(r))

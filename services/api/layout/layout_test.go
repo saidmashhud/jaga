@@ -1,6 +1,9 @@
 package layout
 
-import "testing"
+import (
+	"math"
+	"testing"
+)
 
 var nodes = []Node{
 	{ID: "a", Status: "decision"}, {ID: "b", Status: "paused"},
@@ -25,15 +28,64 @@ func TestDeterministic(t *testing.T) {
 
 // Ось внимания — то, ради чего сцена объёмная: ждущее решения ближе к
 // зрителю, отложенное дальше всех.
+// Ось внимания читается радиусом.
+//
+// Ради этого смысла сцена и сделана: чем ближе к ядру, тем сильнее дело
+// требует человека. Пока эта проверка стоит, раскладка не может незаметно
+// превратиться в красивый граф, который ничего не утверждает.
 func TestAttentionAxis(t *testing.T) {
 	p := Compute(nodes, edges)
-	if !(p["a"].Z > p["c"].Z && p["c"].Z > p["d"].Z && p["d"].Z > p["b"].Z) {
-		t.Errorf("порядок по оси внимания нарушен: decision=%v risk=%v stable=%v paused=%v",
-			p["a"].Z, p["c"].Z, p["d"].Z, p["b"].Z)
+	r := func(id string) float64 { return math.Hypot(p[id].X-CenterX, p[id].Y-CenterY) }
+
+	if !(r("a") < r("c") && r("c") < r("d") && r("d") < r("b")) {
+		t.Errorf("порядок поясов нарушен: решение=%.0f риск=%.0f стабильно=%.0f пауза=%.0f",
+			r("a"), r("c"), r("d"), r("b"))
+	}
+	if p["a"].Belt != 1 || p["b"].Belt != 6 {
+		t.Errorf("номера поясов не те: решение=%d пауза=%d", p["a"].Belt, p["b"].Belt)
 	}
 }
 
-// Узлы не должны слипаться: две сферы в одной точке читаются как одна.
+// Связь не может утащить узел с его пояса.
+//
+// Это то же обещание, что раньше давала глубина, только строже: там связь
+// просто не трогала z, здесь она тянет по-настоящему — и всё равно не
+// сдвигает. Радиус здесь не сила, а связь; будь он силой, достаточно крепкая
+// связь перетащила бы узел на чужой пояс, и расстояние от ядра перестало бы
+// что-либо значить.
+func TestEdgeCannotMoveNodeOffItsBelt(t *testing.T) {
+	// Самая злая пара: концы на противоположных поясах, связь предельной силы.
+	n := []Node{{ID: "близко", Status: "decision"}, {ID: "далеко", Status: "paused"}}
+	p := Compute(n, []Edge{{Source: "близко", Target: "далеко", Strength: 3}})
+
+	for id, want := range map[string]float64{"близко": 112, "далеко": 340} {
+		got := math.Hypot(p[id].X-CenterX, p[id].Y-CenterY)
+		if math.Abs(got-want) > 8.05 {
+			t.Errorf("%s ушёл с пояса: %.1f вместо %.0f±8", id, got, want)
+		}
+	}
+}
+
+// Связанное стоит ближе несвязанного — но вдоль пояса, а не поперёк.
+//
+// Прежняя проверка сравнивала пару с противоположных поясов и с появлением
+// поясов стала неверной по условию: между первым и шестым 228 единиц, и
+// никакая связь этого не отменит. Смысл же остался прежний — связь должна
+// быть видна.
+func TestConnectedAreCloserAlongTheBelt(t *testing.T) {
+	n := []Node{
+		{ID: "a", Status: "working"},
+		{ID: "b", Status: "working"},
+		{ID: "c", Status: "working"},
+	}
+	p := Compute(n, []Edge{{Source: "a", Target: "b", Strength: 3}})
+	d := func(x, y string) float64 { return math.Hypot(p[x].X-p[y].X, p[x].Y-p[y].Y) }
+
+	if d("a", "b") >= d("a", "c") {
+		t.Errorf("связанные a—b (%.0f) не ближе несвязанных a—c (%.0f)", d("a", "b"), d("a", "c"))
+	}
+}
+
 func TestNoOverlap(t *testing.T) {
 	p := Compute(nodes, edges)
 	ids := []string{"a", "b", "c", "d"}
@@ -44,18 +96,6 @@ func TestNoOverlap(t *testing.T) {
 				t.Errorf("%s и %s слиплись", ids[i], ids[j])
 			}
 		}
-	}
-}
-
-// Связанное стоит ближе несвязанного — иначе связь на сцене не читается.
-func TestConnectedAreCloser(t *testing.T) {
-	p := Compute(nodes, edges)
-	d := func(x, y string) float64 {
-		dx, dy := p[x].X-p[y].X, p[x].Y-p[y].Y
-		return dx*dx + dy*dy
-	}
-	if d("a", "b") >= d("a", "c") {
-		t.Errorf("связанные a—b дальше несвязанных a—c")
 	}
 }
 

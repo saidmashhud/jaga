@@ -39,9 +39,16 @@ type Project struct {
 	Status      string   `json:"status"`
 	StatusLabel string   `json:"statusLabel"`
 	Position    Position `json:"position"`
-	Size        string   `json:"size"`
-	UpdatedAt   string   `json:"updatedAt"`
-	Summary     string   `json:"summary"`
+	// Belt — пояс внимания, 1..6 от ядра наружу. Сцена рисует по нему, а не
+	// выводит из статуса сама: два словаря в разных местах разошлись бы при
+	// первом же новом состоянии, как уже вышло с цветами связей.
+	Belt int `json:"belt"`
+	// BeltGuessed — состояние незнакомо, пояс подставлен. Сцена показывает
+	// такой узел пунктиром: видимая догадка честнее молчаливой.
+	BeltGuessed bool   `json:"beltGuessed,omitempty"`
+	Size        string `json:"size"`
+	UpdatedAt   string `json:"updatedAt"`
+	Summary     string `json:"summary"`
 }
 
 func (s *Store) Projects(ctx context.Context, tenant string) ([]Project, error) {
@@ -72,8 +79,8 @@ func (s *Store) Projects(ctx context.Context, tenant string) ([]Project, error) 
 	}
 
 	// Координаты считает раскладка, а не человек. Из данных берётся только
-	// статус — по нему выводится ось внимания; всё остальное выводится из
-	// связей. Колонки pos_* остаются как след прежнего способа и будут
+	// статус — по нему выводится пояс внимания; место вдоль пояса выводится
+	// из связей. Колонки pos_* остаются как след прежнего способа и будут
 	// нужны, когда человек захочет закрепить проект руками.
 	conns, err := s.Connections(ctx, tenant)
 	if err != nil {
@@ -97,6 +104,8 @@ func (s *Store) Projects(ctx context.Context, tenant string) ([]Project, error) 
 	for i := range out {
 		if pt, ok := placed[out[i].ID]; ok {
 			out[i].Position = Position{X: pt.X, Y: pt.Y, Z: pt.Z}
+			out[i].Belt = pt.Belt
+			out[i].BeltGuessed = pt.BeltGuessed
 		}
 	}
 	return out, nil
