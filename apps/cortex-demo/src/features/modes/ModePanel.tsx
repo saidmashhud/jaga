@@ -196,8 +196,16 @@ function Settings() {
 }
 
 export function ModePanel() {
-  const { state, setNavigationMode } = useCortex();
-  const [creating, setCreating] = useState(false);
+  const { state, dispatch, setNavigationMode } = useCortex();
+  // Флаг живёт в общем состоянии, а не здесь.
+  //
+  // Пока он был местным, поднять его было некому: setCreating(true) не
+  // вызывался нигде во всём приложении, и форма заведения проекта оказывалась
+  // недостижимой во всяком непустом пространстве — то есть всегда, кроме
+  // первого дня. Теперь её открывает карточка проекта.
+  const creating = state.creatingProject;
+  const setCreating = (v: boolean) =>
+    dispatch(v ? { type: 'open-new-project' } : { type: 'close-new-project' });
   const mode = state.navigationMode;
 
   // Пустое пространство зовёт завести первый проект прямо со сцены: там

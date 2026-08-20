@@ -14,7 +14,7 @@ import './app/global.css';
 import { App } from './app/App';
 import { SignIn } from './features/auth/SignIn';
 import { loadFromApi, startRefresh, toActivity, toTrackEvent } from './services/cortex-api';
-import { hydrate } from './services/mock-cortex-service';
+import { hydrate, markSource } from './services/mock-cortex-service';
 
 /**
  * Данные подтягиваются до первой отрисовки.
@@ -53,13 +53,19 @@ async function boot() {
   }
 
   const loaded = await loadFromApi();
+  // Источник данных отмечается прямо здесь, по факту ответа службы, — а не
+  // выводится потом из того, пусто на экране или нет. Живое, но пустое
+  // пространство ничем не отличается от образца, если судить по количеству
+  // проектов, и интерфейс принимал одно за другое.
+  markSource(loaded ? 'live' : 'sample');
   if (loaded) {
-    const { projects, connections, focus, lenses, events } = loaded.data;
+    const { projects, connections, focus, lenses, events, kinds } = loaded.data;
     hydrate({
       projects,
       connections,
       focus,
       lenses,
+      kinds,
       recommendation: loaded.data.recommendation,
       activities: events.map(toActivity),
       // Окно дорожки — неделя в обе стороны, ровно то, что показывает шкала
@@ -78,6 +84,7 @@ async function boot() {
           connections: d.connections,
           focus: d.focus,
           lenses: d.lenses,
+          kinds: d.kinds,
           recommendation: d.recommendation,
           activities: d.events.map(toActivity),
           trackEvents: d.events.map((e) => toTrackEvent(e, 24 * 7)),

@@ -15,6 +15,7 @@ import { Toast } from '../../features/toast/Toast';
 import { useCortex } from '../../state/CortexProvider';
 import type { NavigationMode } from '../../state/cortex-state';
 import { ModePanel } from '../../features/modes/ModePanel';
+import { LinkPanel } from '../../features/connections/LinkPanel';
 
 const navItems: Array<{
   mode: NavigationMode;
@@ -73,6 +74,7 @@ export function OrbitPage() {
       >
         <OrbitWorkspace />
         <ModePanel />
+        <LinkPanel />
         <TimelineBar />
       </AppShell>
       <Toast />

@@ -52,9 +52,42 @@ export interface CortexData {
   focus: FocusItem[];
   lenses: Lens[];
   events: ApiEvent[];
+  /** Виды связи с русскими именами. Пусто — служба их не отдала. */
+  kinds: ConnectionKind[];
 }
 
-async function readConfig(): Promise<RuntimeConfig> {
+/**
+ * Вид связи, как его объявляет служба.
+ *
+ * Список приходит оттуда же, где проверяется: свой словарь на странице
+ * разошёлся бы с серверным при первом же добавлении вида, и человек увидел бы
+ * вариант, который служба не примет.
+ */
+export interface ConnectionKind {
+  id: string;
+  name: string;
+  hint: string;
+  /** Важно ли, что откуда. У «общей команды» стороны равноправны. */
+  directed: boolean;
+  /** Как связь читается вслух: «Кофейня ДАЁТ ДЕНЬГИ Фрилансу». */
+  phrase: string;
+}
+
+/**
+ * Настройки читаются один раз за жизнь страницы.
+ *
+ * Раньше каждая запись тянула config.json заново — лишний запрос перед каждым
+ * действием человека. Кешируется обещание, а не результат: два действия,
+ * начатых одновременно, не должны спрашивать дважды.
+ */
+let configOnce: Promise<RuntimeConfig> | null = null;
+
+function readConfig(): Promise<RuntimeConfig> {
+  configOnce ??= fetchConfig();
+  return configOnce;
+}
+
+async function fetchConfig(): Promise<RuntimeConfig> {
   try {
     // no-store: файл настроек меняют между раскатами, и закешированный
     // браузером старый адрес пережил бы переезд службы.
@@ -120,6 +153,17 @@ export async function loadFromApi(): Promise<{ data: CortexData; tenant: string 
       )
       .catch(() => null);
 
+    // Виды связи — так же отдельно, как бриф: без них форма связи не
+    // откроется, но сцена и лента прекрасно живут, и ронять из-за них всю
+    // загрузку не за что.
+    const kinds = await fetch(`${base}/v1/connection-kinds`, {
+      headers: { 'X-Tenant-Id': tenant },
+      cache: 'no-store',
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((b) => (b?.kinds ?? []) as ConnectionKind[])
+      .catch(() => [] as ConnectionKind[]);
+
     const [projects, connections, focus, lenses, events] = await Promise.all([
       get<Project[]>('/v1/projects', 'projects'),
       get<ProjectConnection[]>('/v1/connections', 'connections'),
@@ -136,7 +180,10 @@ export async function loadFromApi(): Promise<{ data: CortexData; tenant: string 
     // Отличать надо не «пусто или нет», а «служба ответила или нет»: первое
     // означает «вам ещё нечего смотреть», второе — «мы не смогли спросить».
 
-    return { data: { projects, connections, focus, lenses, events, recommendation: brief }, tenant };
+    return {
+      data: { projects, connections, focus, lenses, events, kinds, recommendation: brief },
+      tenant,
+    };
   } catch (e) {
     // Истёкшую сессию пробрасываем наверх: там решат показать вход.
     // Проглотить её здесь значило бы оставить экран замёрзшим навсегда.
@@ -178,6 +225,66 @@ export function toTrackEvent(e: ApiEvent, windowHours: number, now = Date.now())
 }
 
 /** Отправка записи из композера. Возвращает false, если служба не настроена. */
+/**
+ * Ответ службы на запись.
+ *
+ * Не просто «получилось или нет»: странице нужно различать три положения,
+ * которые лечатся по-разному. Негодный ввод человек исправляет сам,
+ * противоречие с тем, что уже есть, — решает, а сбой службы не лечится ничем,
+ * и единственное, что тут можно сделать, — сохранить набранное.
+ */
+export interface Written<T> {
+  ok: boolean;
+  /** 0 означает, что до службы не дошли вовсе. */
+  status: number;
+  data?: T;
+  /** Объяснение от службы, как есть: оно написано по-русски и для человека. */
+  error?: string;
+  /** Сессия кончилась — лечится входом, а не повтором. */
+  expired: boolean;
+}
+
+/** Общая часть любой записи: адрес службы, тенант, разбор ответа. */
+async function write<T>(path: string, method: string, body?: unknown): Promise<Written<T>> {
+  const cfg = await readConfig();
+  // Записи раньше шли относительным путём, мимо apiUrl. Пока служба стоит на
+  // том же хосте, это работает; в тот день, когда её вынесут, чтения уедут за
+  // ней, а записи молча уйдут в статику и будут отвечать разметкой страницы.
+  if (cfg.apiUrl === undefined || cfg.apiUrl === '') {
+    return { ok: false, status: 0, expired: false, error: 'служба не настроена' };
+  }
+  const base = cfg.apiUrl.replace(/\/+$/, '');
+
+  let r: Response;
+  try {
+    r = await fetch(`${base}${path}`, {
+      method,
+      headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch {
+    return { ok: false, status: 0, expired: false, error: 'нет связи со службой' };
+  }
+
+  if (r.status === 401) return { ok: false, status: 401, expired: true };
+  if (r.status === 204) return { ok: true, status: 204, expired: false };
+  if (r.ok) return { ok: true, status: r.status, expired: false, data: (await r.json()) as T };
+
+  const said = await r
+    .json()
+    .then((b) => (typeof b?.error === 'string' ? (b.error as string) : ''))
+    .catch(() => '');
+  return { ok: false, status: r.status, expired: false, error: said };
+}
+
+export function postJSON<T>(path: string, body: unknown): Promise<Written<T>> {
+  return write<T>(path, 'POST', body);
+}
+
+export function del(path: string): Promise<Written<void>> {
+  return write<void>(path, 'DELETE');
+}
+
 export async function sendCapture(text: string): Promise<boolean> {
   const cfg = await readConfig();
   if (cfg.apiUrl === undefined || cfg.apiUrl === '') return false;

@@ -14,7 +14,8 @@ import {
   Text,
 } from '@cortex/ui';
 import { relativeTimeLabel } from '../../lib/relative-time';
-import { isLive, mockCortexService } from '../../services/mock-cortex-service';
+import { dataSource, isLive, mockCortexService } from '../../services/mock-cortex-service';
+import { ProjectLinks } from '../connections/ProjectLinks';
 import { useCortex } from '../../state/CortexProvider';
 import styles from './InsightsPanel.module.css';
 
@@ -34,6 +35,12 @@ export function InsightsPanel() {
   const focusItems = mockCortexService.getFocusItems();
   const recommendation = mockCortexService.getRecommendation();
   const scene = mockCortexService.getTimelineScene(state.timelinePointId);
+
+  // Гейт по явному источнику данных, а не по isLive(): тот отвечает на другой
+  // вопрос — «есть ли что показать» — и живое, но пустое пространство объявляет
+  // образцом. Кнопка связи пряталась бы ровно тогда, когда она нужнее всего.
+  const live = dataSource() === 'live';
+  const projectCount = mockCortexService.getProjects().length;
 
   const selectedProject = state.selectedProjectId
     ? mockCortexService.getProject(state.selectedProjectId)
@@ -100,6 +107,17 @@ export function InsightsPanel() {
                       ? 'Выйти из проекта'
                       : 'Войти в проект'}
                   </Button>
+                  {/* Единственный вход в форму связи: здесь первый её конец уже
+                      известен — им становится выбранный узел. */}
+                  {live && projectCount >= 2 && state.enteredProjectId !== selectedProject.id && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => dispatch({ type: 'open-link', sourceId: selectedProject.id })}
+                    >
+                      Связать с другим
+                    </Button>
+                  )}
                   <Button
                     size="sm"
                     variant="ghost"
@@ -108,6 +126,23 @@ export function InsightsPanel() {
                     Снять выбор
                   </Button>
                 </Stack>
+
+                {live && projectCount === 1 && (
+                  <Stack gap={2} align="start">
+                    <Text variant="caption" color="tertiary">
+                      Связывать пока не с чем: связь живёт между двумя делами, а у вас одно.
+                    </Text>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => dispatch({ type: 'open-new-project' })}
+                    >
+                      Завести проект
+                    </Button>
+                  </Stack>
+                )}
+
+                <ProjectLinks projectId={selectedProject.id} editable={live} />
               </Stack>
             </section>
           )}

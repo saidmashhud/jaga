@@ -170,7 +170,6 @@ func main() {
 		}()
 	}
 
-
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /v1/session", handleSignIn(sess, keys))
 	// Кто я: страница спрашивает это до отрисовки, чтобы решить, показать
@@ -314,11 +313,44 @@ func main() {
 			return
 		}
 		id, err := s.CreateConnection(r.Context(), tenantOf(r), c)
-		if err != nil {
+		// Разряд ошибки решает код ответа. Раньше здесь на всех путях стоял
+		// 400: и негодный ввод, и упавшая база отвечали «неверный запрос», и
+		// человек переделывал верно введённое, пока служба лежала.
+		switch {
+		case store.IsInput(err):
 			writeErr(w, http.StatusBadRequest, err.Error())
-			return
+		case store.IsConflict(err):
+			writeErr(w, http.StatusConflict, err.Error())
+		case err != nil:
+			writeErr(w, http.StatusInternalServerError, err.Error())
+		default:
+			writeJSON(w, http.StatusCreated, map[string]string{"id": id})
 		}
-		writeJSON(w, http.StatusCreated, map[string]string{"id": id})
+	}))
+
+	// Убрать связь.
+	//
+	// Заводить, не имея чем убрать, — половина дела: связь определяет
+	// расположение узлов, и ошибочная тихо перекашивает всю сцену.
+	mux.HandleFunc("DELETE /v1/connections/{id}", guard(func(w http.ResponseWriter, r *http.Request) {
+		err := s.DeleteConnection(r.Context(), tenantOf(r), r.PathValue("id"))
+		switch {
+		case errors.Is(err, store.ErrNotFound):
+			writeErr(w, http.StatusNotFound, "такой связи нет")
+		case err != nil:
+			writeErr(w, http.StatusInternalServerError, err.Error())
+		default:
+			w.WriteHeader(http.StatusNoContent)
+		}
+	}))
+
+	// Виды связи — списком, с русскими именами и пояснениями.
+	//
+	// Отдаёт служба, а не хранит страница: список тот же самый, по которому
+	// проверяется вход, и два списка в разных местах разошлись бы при первом
+	// же добавлении вида.
+	mux.HandleFunc("GET /v1/connection-kinds", guard(func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]any{"kinds": store.ConnectionKinds})
 	}))
 
 	mux.HandleFunc("GET /v1/lenses", guard(func(w http.ResponseWriter, r *http.Request) {

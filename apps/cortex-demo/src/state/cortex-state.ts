@@ -26,6 +26,25 @@ export interface CortexState {
   /** Id of the most recently added activity — gets the «fresh» animation. */
   freshActivityId: string | null;
   toast: string | null;
+  /**
+   * Черновик связи; null — форма закрыта.
+   *
+   * Живёт здесь, а не флагом внутри компонента, намеренно. Форма заведения
+   * проекта устроена наоборот, и вышло так: поднять её флаг некому, и она
+   * недостижима во всяком непустом пространстве. Состояние в общем месте
+   * можно открыть откуда угодно.
+   */
+  linkDraft: LinkDraft | null;
+  /** Открыта ли форма заведения проекта. Тот же довод. */
+  creatingProject: boolean;
+}
+
+export interface LinkDraft {
+  sourceId: string;
+  targetId: string | null;
+  kindId: string | null;
+  strength: 1 | 2 | 3;
+  label: string;
 }
 
 export const initialCortexState: CortexState = {
@@ -34,6 +53,8 @@ export const initialCortexState: CortexState = {
   enteredProjectId: null,
   hoveredProjectId: null,
   activeLensId: null,
+  linkDraft: null,
+  creatingProject: false,
   timelinePointId: 'now',
   timelinePeriod: 'week',
   completedFocusIds: [],
@@ -75,19 +96,76 @@ export type CortexAction =
   | { type: 'set-aside-open'; value: boolean }
   | { type: 'show-toast'; message: string }
   | { type: 'dismiss-toast' }
-  | { type: 'clear-selection' };
+  | { type: 'clear-selection' }
+  | { type: 'open-link'; sourceId: string; targetId?: string | null }
+  | { type: 'close-link' }
+  | { type: 'set-link-target'; id: string | null }
+  | { type: 'set-link-kind'; id: string | null }
+  | { type: 'set-link-strength'; value: 1 | 2 | 3 }
+  | { type: 'set-link-label'; value: string }
+  | { type: 'swap-link-ends' }
+  | { type: 'open-new-project' }
+  | { type: 'close-new-project' };
 
 export function cortexReducer(state: CortexState, action: CortexAction): CortexState {
   switch (action.type) {
     case 'select-project':
       return { ...state, selectedProjectId: action.id };
+    case 'open-link':
+      // Форма связи и форма проекта — две панели на одном месте; открытая
+      // вторая закрывает первую, иначе они лягут друг на друга.
+      return {
+        ...state,
+        creatingProject: false,
+        linkDraft: {
+          sourceId: action.sourceId,
+          targetId: action.targetId ?? null,
+          kindId: null,
+          strength: 2,
+          label: '',
+        },
+      };
+    case 'close-link':
+      return { ...state, linkDraft: null };
+    case 'set-link-target':
+      return state.linkDraft ? { ...state, linkDraft: { ...state.linkDraft, targetId: action.id } } : state;
+    case 'set-link-kind':
+      return state.linkDraft ? { ...state, linkDraft: { ...state.linkDraft, kindId: action.id } } : state;
+    case 'set-link-strength':
+      return state.linkDraft ? { ...state, linkDraft: { ...state.linkDraft, strength: action.value } } : state;
+    case 'set-link-label':
+      return state.linkDraft ? { ...state, linkDraft: { ...state.linkDraft, label: action.value } } : state;
+    case 'swap-link-ends':
+      // Меняются местами оба конца, а не только цель: источник взят с
+      // выбранного узла, и без обмена вторую раскладку концов не получить.
+      return state.linkDraft && state.linkDraft.targetId
+        ? {
+            ...state,
+            linkDraft: {
+              ...state.linkDraft,
+              sourceId: state.linkDraft.targetId,
+              targetId: state.linkDraft.sourceId,
+            },
+          }
+        : state;
+    case 'open-new-project':
+      return { ...state, creatingProject: true, linkDraft: null, navigationMode: 'orbit' };
+    case 'close-new-project':
+      return { ...state, creatingProject: false };
     case 'toggle-project':
       return {
         ...state,
         selectedProjectId: state.selectedProjectId === action.id ? null : action.id,
       };
     case 'enter-project':
-      return { ...state, enteredProjectId: action.id, selectedProjectId: action.id };
+      // Вход внутрь проекта закрывает форму связи: портал занимает то же
+      // место, и форма осталась бы висеть поверх чужого мира.
+      return {
+        ...state,
+        enteredProjectId: action.id,
+        selectedProjectId: action.id,
+        linkDraft: null,
+      };
     case 'exit-project':
       return { ...state, enteredProjectId: null };
     case 'hover-project':
@@ -143,6 +221,10 @@ export function cortexReducer(state: CortexState, action: CortexAction): CortexS
     case 'dismiss-toast':
       return { ...state, toast: null };
     case 'clear-selection':
+      // При открытой форме связи снятие выбора закрывает её, а не оставляет
+      // висеть с источником, которого больше нет на сцене. Escape и клик по
+      // пустому месту здесь означают одно: «передумал».
+      if (state.linkDraft) return { ...state, linkDraft: null };
       return {
         ...state,
         selectedProjectId: null,

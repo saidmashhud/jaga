@@ -10,6 +10,7 @@ import { projectById, projectColorVar, projects } from '../mocks/projects';
 import { recommendation } from '../mocks/recommendations';
 import { timelineEvents, timelinePoints, timelineScenes } from '../mocks/timeline';
 import type { ActivityEvent, Project } from '../mocks/types';
+import type { ConnectionKind } from './cortex-api';
 
 export interface ComposerResult {
   event: ActivityEvent;
@@ -35,6 +36,7 @@ const live: {
   lenses?: typeof lenses;
   activities?: ActivityEvent[];
   trackEvents?: typeof timelineEvents;
+  kinds?: ConnectionKind[];
 } = {};
 
 /** Кто хочет знать, что данные сменились. */
@@ -63,6 +65,25 @@ export function isLive(): boolean {
   return Boolean(live.projects?.length);
 }
 
+/**
+ * Откуда взялись данные на экране.
+ *
+ * Отдельно от isLive(), который отвечает на другой вопрос — «есть ли что
+ * показать». Живое, но пустое пространство он объявляет неживым, и всё, что
+ * решается по нему, ведёт себя так, будто человек смотрит образец: кнопка
+ * заведения связи там прячется ровно в тот единственный день, когда она
+ * нужнее всего.
+ */
+let source: 'live' | 'sample' | 'unknown' = 'unknown';
+
+export function markSource(value: 'live' | 'sample'): void {
+  source = value;
+}
+
+export function dataSource(): 'live' | 'sample' | 'unknown' {
+  return source;
+}
+
 const liveById = () => new Map((live.projects ?? []).map((p) => [p.id, p]));
 
 export const mockCortexService = {
@@ -70,6 +91,10 @@ export const mockCortexService = {
   getProject: (id: string) => (live.projects ? liveById().get(id) : projectById.get(id)),
   getProjectColor: (id: string) => projectColorVar[id] ?? 'var(--color-accent-blue)',
   getConnections: () => live.connections ?? connections,
+  // Без фолбэка на образец: пустой список означает, что служба не отдала виды,
+  // и форма должна об этом сказать, а не подсунуть свой словарь, который
+  // служба может не принять.
+  getConnectionKinds: (): ConnectionKind[] => live.kinds ?? [],
   getFocusItems: () => live.focus ?? focusItems,
   getActivities: () => live.activities ?? activities,
   // На живых данных рекомендация — это бриф, собранный моделью по фактам.

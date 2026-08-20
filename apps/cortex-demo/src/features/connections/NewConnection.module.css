@@ -1,0 +1,164 @@
+/* Форма связи держится того же бланка, что и форма проекта: моно-капс подписи,
+   поля-линии, строки выбора с янтарной засечкой слева. Отличие одно и
+   намеренное — фраза сверху, потому что связь это утверждение, а не набор
+   полей. */
+
+.form { display: grid; gap: var(--space-4, 16px); }
+.title { margin: 0; font-size: 1.25rem; font-weight: 600; letter-spacing: -0.02em; }
+.lede { margin: -8px 0 0; font-size: 0.82rem; line-height: 1.5; color: var(--color-text-tertiary); }
+
+/* Фраза.
+ *
+ * Стоит первой и крупнее полей: человек читает утверждение о своих делах
+ * целиком — «Кофейня даёт деньги Фрилансу» — и направление объясняется само,
+ * без слова «направление». Незаполненное стоит бледным и называет себя. */
+.phrase {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4em;
+  font-size: 1.05rem;
+  line-height: 1.5;
+}
+.end { font-weight: 500; color: var(--color-text-primary); }
+.blank { color: var(--color-text-disabled); }
+/* Середина фразы — цветом связи: тем же, каким она ляжет на сцену. */
+.middle { color: var(--color-accent-violet); }
+.arrow { color: var(--color-text-tertiary); }
+
+.swapRow { display: flex; align-items: baseline; gap: 10px; margin-top: 6px; }
+.swap {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--color-text-tertiary);
+  font: inherit;
+  font-size: 0.8rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.swap:hover { color: var(--color-text-primary); }
+.mutual { font-size: 0.8rem; color: var(--color-text-tertiary); }
+
+.field { display: grid; gap: 5px; }
+.label {
+  font-family: var(--font-family-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+.field input,
+.field select {
+  width: 100%;
+  padding: 0.55rem 0 0.6rem;
+  border: 0;
+  border-bottom: 1px solid var(--color-border-default);
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 0.98rem;
+}
+/* Список отдаётся системе, но его раскрытый вид рисует не она, а платформа:
+   тёмная страница и светлый список читались бы как чужой элемент. */
+.field select option { background: var(--color-bg-elevated); color: var(--color-text-primary); }
+.field input::placeholder { color: var(--color-text-disabled); }
+.field input:focus,
+.field select:focus { outline: none; border-bottom-color: var(--color-accent-violet); }
+.field input:focus-visible,
+.field select:focus-visible { box-shadow: var(--focus-ring); }
+
+.only { padding: 0.55rem 0 0.6rem; font-size: 0.98rem; color: var(--color-text-secondary); }
+.hint { font-size: 0.76rem; color: var(--color-text-tertiary); }
+.counter { font-family: var(--font-family-mono); font-size: 0.7rem; color: var(--color-text-tertiary); }
+
+.group { display: grid; gap: 2px; margin: 0; padding: 0; border: 0; }
+.group legend { margin-bottom: 6px; padding: 0; }
+.groupTitle {
+  margin: 8px 0 2px;
+  font-family: var(--font-family-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-text-disabled);
+}
+
+.choice, .choiceOn {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+}
+.choice:hover { background: var(--color-bg-surface); }
+.choiceOn { background: var(--color-bg-surface); box-shadow: inset 2px 0 0 var(--color-accent-violet); }
+.choice input, .choiceOn input { margin: 0; accent-color: var(--color-accent-violet); }
+.choice input:focus-visible, .choiceOn input:focus-visible { box-shadow: var(--focus-ring); }
+.choice b, .choiceOn b { display: block; font-size: 0.92rem; font-weight: 500; }
+.choice em, .choiceOn em {
+  display: block;
+  font-style: normal;
+  font-size: 0.78rem;
+  color: var(--color-text-tertiary);
+}
+
+/* Уже связаны — не ошибка человека, а положение дел, о котором он не знал.
+   Поэтому не красным, а рамкой в сторону: это сообщение с выходом, а не отказ. */
+.known {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-surface);
+  box-shadow: inset 2px 0 0 var(--color-accent-orange);
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+.knownActions { display: flex; gap: 12px; }
+.note { margin: 0; font-size: 0.78rem; line-height: 1.55; color: var(--color-text-tertiary); }
+
+.actions { display: flex; gap: 10px; align-items: center; }
+.submit {
+  padding: 0.55rem 1.05rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.submit:hover:not(:disabled) {
+  background: var(--color-accent-violet);
+  border-color: var(--color-accent-violet);
+  color: var(--color-text-on-accent);
+}
+.submit:focus-visible { box-shadow: var(--focus-ring); }
+.submit:disabled { opacity: 0.4; cursor: not-allowed; }
+.cancel {
+  border: 0;
+  background: none;
+  color: var(--color-text-tertiary);
+  font: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+.cancel:hover { color: var(--color-text-primary); }
+.cancel:focus-visible { box-shadow: var(--focus-ring); }
+
+.link {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--color-accent-violet);
+  font: inherit;
+  font-size: 0.82rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.err { margin: 0; font-family: var(--font-family-mono); font-size: 0.75rem; color: var(--color-accent-orange); }
+.foot { margin: 0; font-size: 0.78rem; line-height: 1.55; color: var(--color-text-tertiary); }

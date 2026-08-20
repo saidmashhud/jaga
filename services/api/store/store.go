@@ -585,30 +585,172 @@ type NewConnection struct {
 // Связи — это то, из чего раскладка выводит расположение: чем их больше, тем
 // осмысленнее сцена. Поэтому заводить их надо так же легко, как проекты.
 func (s *Store) CreateConnection(ctx context.Context, tenant string, c NewConnection) (string, error) {
-	if c.SourceID == c.TargetID {
-		return "", errors.New("проект нельзя связать с самим собой")
-	}
-	if c.Strength < 1 || c.Strength > 3 {
-		c.Strength = 1
-	}
-	switch c.Type {
-	case "resource", "finance", "dependency", "team", "client", "knowledge":
-	default:
-		return "", errors.New("неизвестный вид связи")
+	c, err := CheckConnection(c)
+	if err != nil {
+		return "", err
 	}
 
-	id := c.SourceID + "-" + c.TargetID
-	_, err := s.db.ExecContext(ctx, `
+	id := ConnectionID(c.SourceID, c.TargetID)
+	_, err = s.db.ExecContext(ctx, `
 		INSERT INTO connections (tenant_id, id, source_id, target_id, label, type, strength)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-		tenant, id, c.SourceID, c.TargetID, strings.TrimSpace(c.Label), c.Type, c.Strength)
+		tenant, id, c.SourceID, c.TargetID, c.Label, c.Type, c.Strength)
 	if err != nil {
 		if isUnique(err) {
-			return "", errors.New("такая связь уже есть")
+			return "", ConflictError{"такая связь уже есть"}
+		}
+		// Внешний ключ ловит ссылку на несуществующий проект — и на чужой тоже,
+		// потому что ключ составной, вместе с тенантом. До человека при этом
+		// доходила сырая жалоба базы на имя ограничения; теперь — то, что он
+		// может понять и исправить.
+		if isForeignKey(err) {
+			return "", InputError{"одного из проектов нет в вашем пространстве"}
 		}
 		return "", fmt.Errorf("создание связи: %w", err)
 	}
 	return id, nil
+}
+
+// ConnectionID — имя связи.
+//
+// Составлено из имён концов, потому что двух одинаковых связей между теми же
+// проектами быть не должно, и база отказывает в этом сама, без отдельной
+// проверки.
+func ConnectionID(source, target string) string { return source + "-" + target }
+
+// Виды связи и их русские имена.
+//
+// Список живёт здесь, а не в интерфейсе: он же проверяется на входе, и два
+// списка в разных местах разошлись бы при первом же добавлении вида.
+type ConnectionKind struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Hint string `json:"hint"`
+	// Направленный ли вид. У «общей команды» стороны равноправны, и спрашивать
+	// человека, что откуда, значило бы требовать выбора там, где выбора нет.
+	Directed bool `json:"directed"`
+	// Как связь читается вслух между двумя именами: «Кофейня ДАЁТ ДЕНЬГИ
+	// Фрилансу». Форма объясняет направление этой фразой, а не словом
+	// «направление», — но фраза обязана жить рядом с флагом, иначе они
+	// разойдутся.
+	Phrase string `json:"phrase"`
+}
+
+var ConnectionKinds = []ConnectionKind{
+	{"finance", "Деньги", "один кормит другой", true, "даёт деньги"},
+	{"dependency", "Зависимость", "один не двинется без другого", true, "зависит от"},
+	{"client", "Клиент", "один приводит клиентов другому", true, "приводит клиентов"},
+	{"resource", "Общий ресурс", "делят одно и то же", false, "общий ресурс"},
+	{"team", "Общая команда", "делают одни и те же люди", false, "общая команда"},
+	{"knowledge", "Общий опыт", "растут на одном и том же знании", false, "общий опыт"},
+}
+
+func kindOf(id string) (ConnectionKind, bool) {
+	for _, k := range ConnectionKinds {
+		if k.ID == id {
+			return k, true
+		}
+	}
+	return ConnectionKind{}, false
+}
+
+// CheckConnection выправляет и проверяет связь до похода в базу.
+//
+// Отдельно от записи, чтобы правила можно было проверить без базы: они и есть
+// то место, где ошибка стоит дорого — кривая связь тихо перекашивает всю
+// раскладку сцены.
+func CheckConnection(c NewConnection) (NewConnection, error) {
+	c.SourceID = strings.TrimSpace(c.SourceID)
+	c.TargetID = strings.TrimSpace(c.TargetID)
+	c.Label = strings.TrimSpace(c.Label)
+
+	if c.SourceID == "" || c.TargetID == "" {
+		return c, InputError{"не выбраны оба проекта"}
+	}
+	if c.SourceID == c.TargetID {
+		return c, InputError{"проект нельзя связать с самим собой"}
+	}
+	kind, ok := kindOf(c.Type)
+	if !ok {
+		return c, InputError{"неизвестный вид связи"}
+	}
+
+	// У ненаправленных видов концы равноправны, и «общая команда А→Б» — то же
+	// самое утверждение, что «Б→А». Приводим порядок к одному, и тогда первичный
+	// ключ отказывает в зеркальном двойнике сам. Без этого в базе лежали бы две
+	// строки об одном, сцена рисовала бы две кривые с двумя подписями в одной
+	// точке, а раскладка тянула бы пару вдвое сильнее, чем сказал человек.
+	if !kind.Directed && c.SourceID > c.TargetID {
+		c.SourceID, c.TargetID = c.TargetID, c.SourceID
+	}
+	// Сила вне разумного — не повод отказывать: связь важнее её оттенка, и
+	// потерять её из-за чужой опечатки было бы обиднее, чем нарисовать
+	// тонкой линией.
+	if c.Strength < 1 || c.Strength > 3 {
+		c.Strength = 1
+	}
+	if len([]rune(c.Label)) > 60 {
+		return c, InputError{"пояснение длиннее шестидесяти знаков не поместится на линии"}
+	}
+	return c, nil
+}
+
+// DeleteConnection убирает связь.
+//
+// Без этого форма заведения была бы наполовину: связь определяет расположение
+// узлов, и ошибочная тихо кривит всю сцену — а исправить её было нечем.
+func (s *Store) DeleteConnection(ctx context.Context, tenant, id string) error {
+	res, err := s.db.ExecContext(ctx,
+		`DELETE FROM connections WHERE tenant_id = $1 AND id = $2`, tenant, id)
+	if err != nil {
+		return fmt.Errorf("удаление связи: %w", err)
+	}
+	// Тенант в условии — не украшение: без него ключ связи, известный со
+	// стороны, вычистил бы чужую строку.
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("удаление связи: %w", err)
+	}
+	// Ноль строк — это не сбой, а «нечего убирать»: связь уже сняли в другой
+	// вкладке или человек вернулся по старой ссылке. Отдельно от поломки,
+	// потому что отвечать на это надо по-разному.
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// Разряды ошибок.
+//
+// Раньше все пути записи отвечали «неверный запрос»: и негодный ввод, и
+// упавшая база. Человек в ответ переделывал верно введённое, а настоящая
+// поломка не попадала никуда. Разряд нужен и странице: одно она показывает
+// как объяснимое положение дел с кнопками, другое — как сбой службы, после
+// которого введённое надо сохранить.
+type InputError struct{ Msg string }
+
+func (e InputError) Error() string { return e.Msg }
+
+type ConflictError struct{ Msg string }
+
+func (e ConflictError) Error() string { return e.Msg }
+
+// IsInput — виноват ввод. Это 400.
+func IsInput(err error) bool {
+	var e InputError
+	return errors.As(err, &e)
+}
+
+// IsConflict — ввод верен, но противоречит тому, что уже есть. Это 409:
+// человеку нечего исправлять в написанном, ему надо решить, что делать с
+// существующим.
+func IsConflict(err error) bool {
+	var e ConflictError
+	return errors.As(err, &e)
+}
+
+func isForeignKey(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "foreign key constraint")
 }
 
 // LooseCaptures — записи, оставшиеся без проекта.
