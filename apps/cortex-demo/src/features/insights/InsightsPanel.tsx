@@ -91,7 +91,10 @@ export function InsightsPanel() {
                 <Text variant="body" color="secondary">
                   {selectedProject.summary}
                 </Text>
-                <Stack direction="horizontal" gap={2}>
+                {/* С третьей кнопкой ряд перестал помещаться в ширину карточки,
+                    и «Снять выбор» обрезался краем. Переносим, а не прячем:
+                    все три — равноправные действия над проектом. */}
+                <Stack direction="horizontal" gap={2} wrap>
                   <Button
                     size="sm"
                     variant="primary"
