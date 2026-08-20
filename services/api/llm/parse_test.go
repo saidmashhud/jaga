@@ -1,6 +1,9 @@
 package llm
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 // Эталон разбора.
 //
@@ -90,5 +93,59 @@ func TestExtractRejects(t *testing.T) {
 				t.Errorf("ожидался отказ, получено %+v", *got)
 			}
 		})
+	}
+}
+
+// Календарь считает код, а не модель.
+//
+// Проверка на живой модели дала: «до пятницы» в четверг → суббота,
+// «к понедельнику» → тоже суббота. Хуже того, на пример «в среду это около
+// 50 часов» она вернула ровно 50, скопировав число из подсказки вместо
+// счёта. Дни недели ей не даются, и подсказкой это не лечится.
+func TestHoursUntilWeekday(t *testing.T) {
+	// Четверг, 20 августа 2026, 06:47 — тот самый момент проверки.
+	thu := time.Date(2026, 8, 20, 6, 47, 0, 0, time.UTC)
+
+	cases := []struct {
+		name  string
+		now   time.Time
+		day   time.Weekday
+		hours int
+	}{
+		{"до пятницы в четверг утром — завтра к вечеру", thu, time.Friday, 35},
+		{"к понедельнику в четверг — через четыре дня", thu, time.Monday, 107},
+		{"до субботы в четверг", thu, time.Saturday, 59},
+		// «До четверга», сказанное в четверг утром, — про сегодня: 18:00 ещё
+		// не прошло, и отсылать человека на неделю вперёд было бы нелепо.
+		{"до четверга в четверг утром — сегодня", thu, time.Thursday, 11},
+		// А сказанное вечером того же дня — уже про следующий.
+		{"до четверга в четверг вечером — через неделю",
+			time.Date(2026, 8, 20, 19, 0, 0, 0, time.UTC), time.Thursday, 167},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := hoursUntilWeekday(c.now, c.day); got != c.hours {
+				t.Errorf("получено %d ч, ожидалось %d", got, c.hours)
+			}
+		})
+	}
+}
+
+// День недели из ответа модели превращается в часы, а её собственное число
+// при этом отбрасывается — оно и было источником промахов.
+func TestWeekdayOverridesModelHours(t *testing.T) {
+	got, err := extract(`{"projectId":"kofeynya","title":"Подписать акт","type":"update","offsetHours":50,"weekday":"friday"}`)
+	if err != nil {
+		t.Fatalf("разбор не удался: %v", err)
+	}
+	if got.OffsetHours == 50 {
+		t.Error("часы взяты у модели, хотя назван день недели")
+	}
+	if got.Type != "deadline" {
+		t.Errorf("названный день недели — это срок, получено %q", got.Type)
+	}
+	if got.OffsetHours <= 0 || got.OffsetHours > 24*8 {
+		t.Errorf("нелепое расстояние до дня недели: %d ч", got.OffsetHours)
 	}
 }
