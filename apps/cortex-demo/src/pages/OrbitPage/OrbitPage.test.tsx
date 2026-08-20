@@ -6,7 +6,7 @@ import { App } from '../../app/App';
 describe('OrbitPage — интерактивные сценарии', () => {
   it('выбор узла показывает contextual summary, Escape снимает выбор', async () => {
     render(<App />);
-    const node = screen.getByRole('button', { name: 'invent.sale. Требует решения' });
+    const node = screen.getByRole('button', { name: /^invent\.sale\.\ Требует\ решения/ });
 
     await userEvent.click(node);
     expect(node).toHaveAttribute('aria-pressed', 'true');
@@ -23,7 +23,7 @@ describe('OrbitPage — интерактивные сценарии', () => {
 
   it('повторный клик по узлу снимает выбор', async () => {
     render(<App />);
-    const node = screen.getByRole('button', { name: 'Didi. Риск' });
+    const node = screen.getByRole('button', { name: /^Didi\.\ Риск/ });
     await userEvent.click(node);
     expect(node).toHaveAttribute('aria-pressed', 'true');
     await userEvent.click(node);
@@ -84,20 +84,20 @@ describe('OrbitPage — интерактивные сценарии', () => {
   it('timeline переключает моковое состояние сцены', async () => {
     render(<App />);
     expect(
-      screen.getByRole('button', { name: 'Кофейня. Требует внимания' }),
+      screen.getByRole('button', { name: /^Кофейня\.\ Требует\ внимания/ }),
     ).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Через неделю' }));
     expect(
-      screen.getByRole('button', { name: 'Кофейня. Стабильно' }),
+      screen.getByRole('button', { name: /^Кофейня\.\ Стабильно/ }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'invent.sale. В работе' }),
+      screen.getByRole('button', { name: /^invent\.sale\.\ В\ работе/ }),
     ).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Сейчас' }));
     expect(
-      screen.getByRole('button', { name: 'Кофейня. Требует внимания' }),
+      screen.getByRole('button', { name: /^Кофейня\.\ Требует\ внимания/ }),
     ).toBeInTheDocument();
   });
 
@@ -135,7 +135,7 @@ describe('OrbitPage — интерактивные сценарии', () => {
 
   it('навигация по узлам работает с клавиатуры (Tab + Enter)', async () => {
     render(<App />);
-    const node = screen.getByRole('button', { name: 'Nexus. Стабильно' });
+    const node = screen.getByRole('button', { name: /^Nexus\.\ Стабильно/ });
     node.focus();
     expect(node).toHaveFocus();
     await userEvent.keyboard('{Enter}');

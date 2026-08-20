@@ -11,7 +11,7 @@ import {
 import { mockCortexService } from '../../services/mock-cortex-service';
 import { BeltRings } from './BeltRings';
 import { useLabelTraffic } from './useLabelTraffic';
-import { BELT_NAME, inBeltOrder, labelsVisible, linkCounts, sizeByLinks } from './belts';
+import { inBeltOrder, labelsVisible, linkCounts, sizeByLinks } from './belts';
 import { useCortex } from '../../state/CortexProvider';
 import type { ConnectionType } from '../../mocks/types';
 import styles from './OrbitScene.module.css';
@@ -34,8 +34,6 @@ const connectionColor: Record<ConnectionType, string> = {
   knowledge: 'var(--color-state-ai)',
 };
 
-/** Состояние по номеру пояса — нужно для подписи узла читалке. */
-const BELT_STATUS = ['decision', 'risk', 'attention', 'working', 'stable', 'paused'];
 
 export function OrbitScene() {
   const { state, dispatch } = useCortex();
@@ -217,7 +215,6 @@ export function OrbitScene() {
                   // Размер — по числу связей: радиус занят вниманием, цвет
                   // состоянием, а связность в данных уже есть.
                   size={sizeByLinks(links)}
-                  beltLabel={BELT_NAME[BELT_STATUS[belt - 1] ?? 'working']}
                   beltIndex={belt}
                   beltCount={6}
                   linkCount={links}

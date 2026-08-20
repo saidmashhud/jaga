@@ -27,14 +27,13 @@ export interface ProjectNodeProps
   /** Short summary shown in the hover/focus tooltip. */
   hoverSummary?: string;
   /**
-   * Пояс внимания: русское имя, номер и сколько их всего.
+   * Кольцо внимания: номер от ядра и сколько их всего.
    *
-   * Попадает в имя кнопки для читалки: «Диди. Риск. Пояс 2 из 6. Связей: 3».
-   * Расстояние от ядра — главное, что сообщает карта, и человек, который её не
-   * видит, обязан это услышать. Все три необязательны: без них имя остаётся
-   * прежним, и старые проверки продолжают проходить.
+   * Попадает в имя кнопки: «Диди. Риск. Кольцо 2 из 6. Связей: 3.» Расстояние
+   * от ядра — главное, что сообщает карта, и тот, кто её не видит, обязан это
+   * услышать. Необязательны: без них имя остаётся прежним, и узел годится для
+   * карточных мест, где колец нет вовсе.
    */
-  beltLabel?: string;
   beltIndex?: number;
   beltCount?: number;
   /** Сколько связей у дела. Тоже звучит в имени кнопки. */
@@ -74,7 +73,6 @@ export function ProjectNode({
   x,
   y,
   hoverSummary,
-  beltLabel,
   beltIndex,
   beltCount,
   linkCount,
@@ -92,8 +90,15 @@ export function ProjectNode({
   // Имя кнопки достраивается только тем, что передали. Пустые части не
   // подставляются пустыми словами: «Пояс undefined из 6» хуже, чем ничего.
   const parts = [`${title}.`, `${label}.`];
-  if (beltLabel && beltIndex && beltCount) {
-    parts.push(`Пояс ${beltIndex} из ${beltCount}: ${beltLabel}.`);
+  if (beltIndex && beltCount) {
+    // Имя пояса не повторяем: оно и есть состояние, уже названное строкой
+    // выше. Ценен здесь номер — он говорит, насколько близко дело стоит к
+    // человеку, а это то, что видящий читает с карты одним взглядом.
+    parts.push(
+      beltIndex === 1
+        ? `Ближайшее кольцо из ${beltCount}.`
+        : `Кольцо ${beltIndex} из ${beltCount}.`,
+    );
   }
   if (linkCount !== undefined) {
     parts.push(linkCount > 0 ? `Связей: ${linkCount}.` : 'Связей нет.');
@@ -124,7 +129,9 @@ export function ProjectNode({
         type="button"
         className={styles.circle}
         aria-pressed={selected}
-        aria-label={`${title}. ${label}`}
+        // Имя собрано из частей выше: карта говорит расстоянием и связями,
+        // и тот, кто её не видит, обязан это услышать.
+        aria-label={parts.join(' ')}
         aria-describedby={hoverSummary ? tooltipId : undefined}
         onClick={() => onSelect?.(id)}
         onFocus={() => onHoverChange?.(id, true)}
