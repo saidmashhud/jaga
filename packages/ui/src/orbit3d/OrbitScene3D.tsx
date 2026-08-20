@@ -147,8 +147,8 @@ export function OrbitScene3D({
           здесь, а не в вызывающем коде: узлы расставляет физика внутри
           канваса, и снаружи их расположение никому не известно.
         */}
-          <LabelTraffic registry={labels} store={store} />
-          <FitCamera registry={labels} store={store} />
+          <LabelTraffic registry={labels} />
+          <FitCamera registry={labels} />
           {/*
           No cursor-repeller body here, unlike the pmndrs ballpit demos: a
           collider under the pointer physically shoves a node out from under

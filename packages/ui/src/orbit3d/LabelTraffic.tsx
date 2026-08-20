@@ -1,8 +1,6 @@
 import { useFrame, useThree } from '@react-three/fiber';
 import { useRef } from 'react';
 import * as THREE from 'three';
-import type { NodePositionStore } from './node-positions';
-import { nodeVector } from './node-positions';
 
 /**
  * Разведение подписей узлов.
@@ -29,8 +27,18 @@ export interface LabelEntry {
    *  пустым навсегда — узел молча выпал бы из разводки. Ссылку же достаточно
    *  прочитать в кадре, когда всё уже на месте. */
   ref: { current: HTMLElement | null };
+  /** Живая точка в мире, к которой подпись привязана. Каждая запись несёт её
+   *  сама: подписи узлов и подписи связей стоят на сцене по-разному, а
+   *  разводящему разница безразлична — ему нужна только точка. */
+  at: THREE.Vector3;
   /** Глубина по оси внимания: чем больше, тем важнее. */
   z: number;
+  /** Подпись узла или подпись связи.
+   *
+   *  Узел важнее связи всегда: связь описывает отношение между двумя узлами и
+   *  без них не значит ничего, а узел читается сам по себе. Поэтому при
+   *  столкновении уступает связь, независимо от глубины. */
+  kind: 'node' | 'link';
 }
 
 export type LabelRegistry = Map<string, LabelEntry>;
@@ -81,13 +89,7 @@ export function crowdedIds(
   return crowded;
 }
 
-export function LabelTraffic({
-  registry,
-  store,
-}: {
-  registry: LabelRegistry;
-  store: NodePositionStore;
-}) {
+export function LabelTraffic({ registry }: { registry: LabelRegistry }) {
   const camera = useThree((s) => s.camera);
   const since = useRef(0);
   const probe = useRef(new THREE.Vector3());
@@ -105,14 +107,18 @@ export function LabelTraffic({
     registry.forEach((entry, id) => {
       const el = entry.ref.current;
       if (!el) return;
-      probe.current.copy(nodeVector(store, id)).project(camera);
+      probe.current.copy(entry.at).project(camera);
       // За спиной камеры — не показываем вовсе: подпись там всё равно не
       // соответствует ничему видимому.
       if (probe.current.z > 1) {
         el.dataset.crowded = 'hidden';
         return;
       }
-      live.push({ id, el, rank: entry.z * 1000 - probe.current.z });
+      live.push({
+        id,
+        el,
+        rank: (entry.kind === 'node' ? 1e6 : 0) + entry.z * 1000 - probe.current.z,
+      });
     });
 
     // Сперва разжимаем всех и только потом мерим. Иначе уступившая подпись

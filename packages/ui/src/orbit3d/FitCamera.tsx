@@ -1,7 +1,6 @@
 import { useFrame, useThree } from '@react-three/fiber';
 import { useRef } from 'react';
 import * as THREE from 'three';
-import type { NodePositionStore } from './node-positions';
 import type { LabelRegistry } from './LabelTraffic';
 
 /**
@@ -16,15 +15,7 @@ import type { LabelRegistry } from './LabelTraffic';
  * их числа. Непрерывный подгон был бы хуже: камера ползала бы за физикой
  * узлов, и сцена никогда не стояла бы на месте.
  */
-export function FitCamera({
-  registry,
-  store,
-}: {
-  /** Список подписей и есть список узлов: он чистится при удалении узла,
-   *  а хранилище координат — нет, и по нему рамка считалась бы по призракам. */
-  registry: LabelRegistry;
-  store: NodePositionStore;
-}) {
+export function FitCamera({ registry }: { registry: LabelRegistry }) {
   const camera = useThree((s) => s.camera);
   // Органы управления объявлены makeDefault — берём их из состояния сцены, а
   // не тянем ссылку через полдерева.
@@ -40,22 +31,17 @@ export function FitCamera({
   const settle = useRef(0);
 
   useFrame((_, delta) => {
-    const ids = Array.from(registry.keys()).sort();
-    const key = ids.join(',') + '|' + size.width;
-    if (key === applied.current || ids.length === 0) return;
+    // Рамка считается по узлам, а не по всему, что подписано: подписи связей
+    // висят между узлами и границ сцены не расширяют.
+    const nodes = Array.from(registry.values()).filter((e) => e.kind === 'node');
+    const key = Array.from(registry.keys()).sort().join(',') + '|' + size.width;
+    if (key === applied.current || nodes.length === 0) return;
 
     settle.current += delta;
     if (settle.current < 0.8) return;
 
     const box = new THREE.Box3();
-    let found = 0;
-    for (const id of ids) {
-      const v = store.get(id);
-      if (!v) continue;
-      box.expandByPoint(v);
-      found++;
-    }
-    if (found === 0) return;
+    for (const node of nodes) box.expandByPoint(node.at);
 
     const centre = box.getCenter(new THREE.Vector3());
     const radius = Math.max(box.getBoundingSphere(new THREE.Sphere()).radius, 2.5);

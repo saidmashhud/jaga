@@ -72,7 +72,7 @@ export function ProjectSphere({
   // Подпись отдаётся разводящему: он один видит все и решает, чью показать,
   // когда две налезают друг на друга. Сама подпись о соседях не знает.
   useEffect(() => {
-    registry.set(id, { ref: labelRef, z: anchor[2] });
+    registry.set(id, { ref: labelRef, at: nodeVector(store, id), z: anchor[2], kind: 'node' });
     return () => {
       registry.delete(id);
       // Координаты живут в общей карте, которая сама себя не чистит: без этого
