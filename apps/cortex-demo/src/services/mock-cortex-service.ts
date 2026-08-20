@@ -10,7 +10,7 @@ import { projectById, projectColorVar, projects } from '../mocks/projects';
 import { recommendation } from '../mocks/recommendations';
 import { timelineEvents, timelinePoints, timelineScenes } from '../mocks/timeline';
 import type { ActivityEvent, Project } from '../mocks/types';
-import type { ConnectionKind } from './cortex-api';
+import type { ConnectionKind, SceneShape } from './cortex-api';
 
 export interface ComposerResult {
   event: ActivityEvent;
@@ -37,6 +37,7 @@ const live: {
   activities?: ActivityEvent[];
   trackEvents?: typeof timelineEvents;
   kinds?: ConnectionKind[];
+  shape?: SceneShape | null;
 } = {};
 
 /** Кто хочет знать, что данные сменились. */
@@ -95,6 +96,9 @@ export const mockCortexService = {
   // и форма должна об этом сказать, а не подсунуть свой словарь, который
   // служба может не принять.
   getConnectionKinds: (): ConnectionKind[] => live.kinds ?? [],
+  // Устройство сцены. null означает, что служба его не отдала: сцена тогда
+  // рисует узлы без колец, а не выдумывает свои радиусы.
+  getSceneShape: (): SceneShape | null => live.shape ?? null,
   getFocusItems: () => live.focus ?? focusItems,
   getActivities: () => live.activities ?? activities,
   // На живых данных рекомендация — это бриф, собранный моделью по фактам.

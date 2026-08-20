@@ -54,6 +54,23 @@ export interface CortexData {
   events: ApiEvent[];
   /** Виды связи с русскими именами. Пусто — служба их не отдала. */
   kinds: ConnectionKind[];
+  /** Устройство сцены: пояса внимания и размеры логического поля. */
+  shape: SceneShape | null;
+}
+
+/**
+ * Устройство сцены, как его объявляет служба.
+ *
+ * Радиусы поясов — те же, по которым служба расставляет узлы. Своя таблица на
+ * странице разошлась бы с ней при первом же новом состоянии, и узел рисовался
+ * бы не на своём кольце.
+ */
+export interface SceneShape {
+  width: number;
+  height: number;
+  center: { x: number; y: number };
+  decisionRadius: number;
+  belts: Array<{ status: string; index: number; radius: number; band: number }>;
 }
 
 /**
@@ -115,6 +132,30 @@ async function fetchConfig(): Promise<RuntimeConfig> {
  * отдала пустым.
  */
 let kindsOnce: ConnectionKind[] | null = null;
+
+/**
+ * Устройство сцены — тоже один раз за жизнь страницы.
+ *
+ * Это не данные, а геометрия: пояса не меняются между тиками опроса, и одна
+ * осечка сети не должна оставлять сцену без колец.
+ */
+let shapeOnce: SceneShape | null = null;
+
+async function loadShape(base: string, tenant: string): Promise<SceneShape | null> {
+  if (shapeOnce !== null) return shapeOnce;
+  try {
+    const r = await fetch(`${base}/v1/scene`, {
+      headers: { 'X-Tenant-Id': tenant },
+      cache: 'no-store',
+    });
+    if (!r.ok) return null;
+    const body = (await r.json()) as SceneShape;
+    if (body?.belts?.length) shapeOnce = body;
+    return shapeOnce;
+  } catch {
+    return null;
+  }
+}
 
 async function loadKinds(base: string, tenant: string): Promise<ConnectionKind[]> {
   if (kindsOnce !== null) return kindsOnce;
@@ -189,6 +230,7 @@ export async function loadFromApi(): Promise<{ data: CortexData; tenant: string 
     // и стирала выбранный вид прямо в открытой форме — человек посреди работы
     // получал «служба не отдала список видов связи».
     const kinds = await loadKinds(base, tenant);
+    const shape = await loadShape(base, tenant);
 
     const [projects, connections, focus, lenses, events] = await Promise.all([
       get<Project[]>('/v1/projects', 'projects'),
@@ -207,7 +249,7 @@ export async function loadFromApi(): Promise<{ data: CortexData; tenant: string 
     // означает «вам ещё нечего смотреть», второе — «мы не смогли спросить».
 
     return {
-      data: { projects, connections, focus, lenses, events, kinds, recommendation: brief },
+      data: { projects, connections, focus, lenses, events, kinds, shape, recommendation: brief },
       tenant,
     };
   } catch (e) {

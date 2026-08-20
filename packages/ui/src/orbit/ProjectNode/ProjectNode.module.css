@@ -271,3 +271,24 @@
 .dimmed:hover .tooltip {
   opacity: 0;
 }
+
+/* Подпись убрана.
+ *
+ * Убрана с глаз, а не из дерева доступности: имя дела остаётся в имени кнопки.
+ * Теснота на отдалении снимается не алгоритмом, а тем, что имена гаснут:
+ * издали читаются форма и плотность, имена появляются, когда человек
+ * приблизился к тому, что его занимает. */
+.quiet .meta {
+  opacity: 0;
+  transition: opacity var(--motion-normal) var(--easing-standard);
+  pointer-events: none;
+}
+.quiet:hover .meta,
+.quiet:focus-within .meta {
+  opacity: 1;
+}
+
+/* Пояс подставлен: состояние незнакомо. Видимая догадка честнее молчаливой. */
+.guessed .circle {
+  border-style: dashed;
+}

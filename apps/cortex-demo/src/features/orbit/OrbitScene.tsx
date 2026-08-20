@@ -1,31 +1,42 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { iconRegistry } from '@cortex/icons';
 import { statusLabels } from '@cortex/tokens';
 import {
   ConnectionLabel,
   OrbitCanvas,
   OrbitConnection,
-  OrbitRing,
   ProjectNode,
   SceneGlow,
   UserCoreNode,
   connectionPointAt,
 } from '@cortex/ui';
 import { mockCortexService } from '../../services/mock-cortex-service';
+import { BeltRings } from './BeltRings';
+import { BELT_NAME, inBeltOrder, labelsVisible, linkCounts, sizeByLinks } from './belts';
 import { useCortex } from '../../state/CortexProvider';
 import type { ConnectionType } from '../../mocks/types';
 import styles from './OrbitScene.module.css';
 
 const CENTER = { x: 600, y: 400 };
 
+/**
+ * Цвета связей по видам — один словарь на приложение.
+ *
+ * Их было два, свой у каждой сцены, и один вид получал в них разные цвета:
+ * «общая команда» была фиолетовой в одной и золотой в другой. Через токены, а
+ * не значениями: тема переключается, а вписанный сюда цвет — нет.
+ */
 const connectionColor: Record<ConnectionType, string> = {
-  team: 'rgba(155, 123, 255, 0.55)',
-  finance: 'rgba(117, 237, 111, 0.5)',
-  dependency: 'rgba(255, 201, 74, 0.5)',
-  client: 'rgba(55, 217, 255, 0.55)',
-  resource: 'rgba(53, 151, 255, 0.5)',
-  knowledge: 'rgba(118, 87, 255, 0.5)',
+  team: 'var(--color-accent-violet)',
+  finance: 'var(--color-state-stable)',
+  dependency: 'var(--color-state-attention)',
+  client: 'var(--color-state-decision)',
+  resource: 'var(--color-state-working)',
+  knowledge: 'var(--color-state-ai)',
 };
+
+/** Состояние по номеру пояса — нужно для подписи узла читалке. */
+const BELT_STATUS = ['decision', 'risk', 'attention', 'working', 'stable', 'paused'];
 
 export function OrbitScene() {
   const { state, dispatch } = useCortex();
@@ -36,6 +47,25 @@ export function OrbitScene() {
   const lens = state.activeLensId
     ? mockCortexService.getLenses().find((l) => l.id === state.activeLensId) ?? null
     : null;
+
+  const shape = mockCortexService.getSceneShape();
+  const centre = shape?.center ?? CENTER;
+
+  // Действующий масштаб приходит от полотна: по нему решается, показывать ли
+  // подписи. Считать надо от того, насколько крупно человек ВИДИТ узел, а не
+  // от того, сколько он накрутил колесом на большом экране.
+  const [scale, setScale] = useState(1);
+  const onScaleChange = useCallback((v: number) => setScale(v), []);
+
+  const degree = useMemo(() => linkCounts(connections), [connections]);
+  // Порядок в дереве — по поясам, а не по свежести: маршрут Tab не должен
+  // перетасовываться под человеком после каждого обновления данных.
+  const ordered = useMemo(() => inBeltOrder(projects, centre), [projects, centre]);
+  const beltCounts = useMemo(() => {
+    const m = new Map<number, number>();
+    for (const p of projects) m.set(p.belt ?? 4, (m.get(p.belt ?? 4) ?? 0) + 1);
+    return m;
+  }, [projects]);
 
   const activeId = state.hoveredProjectId ?? state.selectedProjectId;
 
@@ -89,13 +119,15 @@ export function OrbitScene() {
         </div>
       )}
       <OrbitCanvas
-        aria-label="Карта проектов Orbit"
+        aria-label="Карта дел"
+        navigable
+        onScaleChange={onScaleChange}
         onClearSelection={() => dispatch({ type: 'clear-selection' })}
         svgLayer={
           <>
-            <OrbitRing cx={CENTER.x} cy={CENTER.y} r={175} ry={150} dashed opacity={0.8} />
-            <OrbitRing cx={CENTER.x} cy={CENTER.y} r={300} ry={245} opacity={0.55} />
-            <OrbitRing cx={CENTER.x} cy={CENTER.y} r={430} ry={330} dashed opacity={0.35} />
+            {/* Кольцо перестало быть украшением и стало шкалой: место узла на
+                нём — это то, насколько дело требует человека. */}
+            {shape && <BeltRings shape={shape} counts={beltCounts} />}
             {connections.map((connection) => {
               const source = projects.find((p) => p.id === connection.sourceId);
               const target = projects.find((p) => p.id === connection.targetId);
@@ -163,37 +195,65 @@ export function OrbitScene() {
             </ConnectionLabel>
           );
         })}
-        <UserCoreNode x={CENTER.x} y={CENTER.y} pulse={!state.selectedProjectId} />
-        {projects.map((project) => {
-          const status = scene.statusOverrides[project.id] ?? project.status;
-          const statusLabel =
-            scene.statusOverrides[project.id] != null
-              ? statusLabels[status]
-              : project.statusLabel;
-          const Icon = project.icon ? iconRegistry[project.icon] : null;
-          return (
-            <ProjectNode
-              key={project.id}
-              id={project.id}
-              title={project.title}
-              subtitle={project.subtitle}
-              icon={Icon ? <Icon /> : undefined}
-              status={status}
-              statusLabel={statusLabel}
-              size={project.size}
-              x={project.position.x}
-              y={project.position.y}
-              selected={state.selectedProjectId === project.id}
-              dimmed={isDimmed(project.id)}
-              updated={freshEvent?.projectId === project.id}
-              hoverSummary={project.summary}
-              onSelect={(id) => dispatch({ type: 'toggle-project', id })}
-              onHoverChange={(id, hovered) =>
-                dispatch({ type: 'hover-project', id: hovered ? id : null })
-              }
-            />
-          );
-        })}
+        {/* Ядро — начало отсчёта шкалы, а не живой объект: дыхание снято.
+            Один движущийся предмет находится боковым зрением мгновенно; когда
+            движется и он, и что-то ещё, оба читаются как помеха. */}
+        <UserCoreNode x={centre.x} y={centre.y} pulse={false} />
+        {/* Узлы — настоящий список настоящих кнопок.
+            Прежде вся сцена была помечена aria-hidden, и в дереве доступности
+            не было ни одного узла: карта была нема с обеих сторон. Порядок в
+            списке — порядок поясов, поэтому первое, на что попадает Tab, — то,
+            что требует решения. */}
+        <ul className={styles.nodes}>
+          {ordered.map((project) => {
+            const status = scene.statusOverrides[project.id] ?? project.status;
+            const statusLabel =
+              scene.statusOverrides[project.id] != null
+                ? statusLabels[status]
+                : project.statusLabel;
+            const Icon = project.icon ? iconRegistry[project.icon] : null;
+            const belt = project.belt ?? 4;
+            const links = degree.get(project.id) ?? 0;
+            // Подпись возвращается на любом приближении, если узел под
+            // курсором, выбран или это сосед активного: спрятать имя ровно у
+            // того, на что человек смотрит, было бы издевательством.
+            const speaks =
+              labelsVisible(scale, belt) ||
+              activeId === project.id ||
+              Boolean(relatedIds?.has(project.id));
+            return (
+              <li key={project.id} className={styles.node}>
+                <ProjectNode
+                  id={project.id}
+                  title={project.title}
+                  subtitle={project.subtitle}
+                  icon={Icon ? <Icon /> : undefined}
+                  status={status}
+                  statusLabel={statusLabel}
+                  // Размер — по числу связей: радиус занят вниманием, цвет
+                  // состоянием, а связность в данных уже есть.
+                  size={sizeByLinks(links)}
+                  beltLabel={BELT_NAME[BELT_STATUS[belt - 1] ?? 'working']}
+                  beltIndex={belt}
+                  beltCount={6}
+                  linkCount={links}
+                  quiet={!speaks}
+                  guessed={project.beltGuessed}
+                  x={project.position.x}
+                  y={project.position.y}
+                  selected={state.selectedProjectId === project.id}
+                  dimmed={isDimmed(project.id)}
+                  updated={freshEvent?.projectId === project.id}
+                  hoverSummary={project.summary}
+                  onSelect={(id) => dispatch({ type: 'toggle-project', id })}
+                  onHoverChange={(id, hovered) =>
+                    dispatch({ type: 'hover-project', id: hovered ? id : null })
+                  }
+                />
+              </li>
+            );
+          })}
+        </ul>
       </OrbitCanvas>
     </div>
   );

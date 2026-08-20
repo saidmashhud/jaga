@@ -5,9 +5,12 @@ import {
   type HTMLAttributes,
   type KeyboardEvent,
   type MouseEvent,
+  type PointerEvent,
+  type WheelEvent,
   type ReactNode,
 } from 'react';
 import { cx } from '../../utils/cx';
+import { RESET, type View, wheelFactor, zoomAt } from './view';
 import styles from './OrbitCanvas.module.css';
 
 export interface OrbitCanvasProps extends HTMLAttributes<HTMLDivElement> {
@@ -23,6 +26,15 @@ export interface OrbitCanvasProps extends HTMLAttributes<HTMLDivElement> {
   onClearSelection?: () => void;
   /** HTML layer in scene coordinates: glows, labels, nodes. */
   children?: ReactNode;
+  /**
+   * Можно ли приближать и возить полотно.
+   *
+   * Выключено по умолчанию: старая сцена вписывала всё в кадр и обходилась без
+   * этого, и включать ей приближение задним числом незачем.
+   */
+  navigable?: boolean;
+  /** Сообщает наружу действующий масштаб: по нему решается, показывать ли подписи. */
+  onScaleChange?: (scale: number) => void;
 }
 
 /**
@@ -35,12 +47,18 @@ export function OrbitCanvas({
   svgLayer,
   backdrop = true,
   onClearSelection,
+  navigable = false,
+  onScaleChange,
   className,
   children,
   ...rest
 }: OrbitCanvasProps) {
   const rootRef = useRef<HTMLDivElement>(null);
+  const sceneRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
+  const [view, setView] = useState<View>(RESET);
+  // Откуда начали тянуть. null — не тянем.
+  const drag = useRef<{ x: number; y: number; vx: number; vy: number } | null>(null);
 
   useEffect(() => {
     const el = rootRef.current;
@@ -57,8 +75,53 @@ export function OrbitCanvas({
     return () => observer.disconnect();
   }, [sceneWidth, sceneHeight]);
 
+  // Действующий масштаб — вписывающий, помноженный на ручное приближение. По
+  // нему сцена решает, показывать ли подписи: порог должен считаться от того,
+  // насколько крупно человек ВИДИТ узел, а не от того, сколько он накрутил
+  // колесом на большом экране.
+  const effective = scale * view.zoom;
+  useEffect(() => {
+    onScaleChange?.(effective);
+  }, [effective, onScaleChange]);
+
   const handleBackgroundClick = (event: MouseEvent<HTMLDivElement>) => {
     if (event.target === event.currentTarget) onClearSelection?.();
+  };
+
+  const handleWheel = (event: WheelEvent<HTMLDivElement>) => {
+    if (!navigable) return;
+    const box = rootRef.current?.getBoundingClientRect();
+    if (!box) return;
+    // Курсор относительно центра полотна: сдвиг считается от него же.
+    const px = event.clientX - box.left - box.width / 2;
+    const py = event.clientY - box.top - box.height / 2;
+    setView((v) => zoomAt(v, wheelFactor(event.deltaY), px, py));
+  };
+
+  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    // Тянем только за пустое место: протяжка по узлу — это его дело.
+    //
+    // Пустое место — это корень полотна ИЛИ сам слой сцены: слой растянут
+    // поверх корня, и до корня указатель просто не доходит. Проверка «цель
+    // равна корню» не срабатывала бы никогда.
+    const onEmpty = event.target === event.currentTarget || event.target === sceneRef.current;
+    if (!navigable || !onEmpty) return;
+    drag.current = { x: event.clientX, y: event.clientY, vx: view.x, vy: view.y };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    const from = drag.current;
+    if (!from) return;
+    setView((v) => ({ ...v, x: from.vx + (event.clientX - from.x), y: from.vy + (event.clientY - from.y) }));
+  };
+
+  const endDrag = (event: PointerEvent<HTMLDivElement>) => {
+    if (!drag.current) return;
+    drag.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -70,6 +133,11 @@ export function OrbitCanvas({
       ref={rootRef}
       className={cx(styles.root, backdrop && styles.backdrop, className)}
       onKeyDown={handleKeyDown}
+      onWheel={handleWheel}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
       {...rest}
     >
       {backdrop && (

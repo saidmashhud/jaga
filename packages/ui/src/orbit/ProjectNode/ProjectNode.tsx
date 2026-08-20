@@ -26,6 +26,28 @@ export interface ProjectNodeProps
   y: number;
   /** Short summary shown in the hover/focus tooltip. */
   hoverSummary?: string;
+  /**
+   * Пояс внимания: русское имя, номер и сколько их всего.
+   *
+   * Попадает в имя кнопки для читалки: «Диди. Риск. Пояс 2 из 6. Связей: 3».
+   * Расстояние от ядра — главное, что сообщает карта, и человек, который её не
+   * видит, обязан это услышать. Все три необязательны: без них имя остаётся
+   * прежним, и старые проверки продолжают проходить.
+   */
+  beltLabel?: string;
+  beltIndex?: number;
+  beltCount?: number;
+  /** Сколько связей у дела. Тоже звучит в имени кнопки. */
+  linkCount?: number;
+  /**
+   * Подпись убрана: узел далеко или мелко.
+   *
+   * Убрана только с глаз — из имени кнопки имя дела никуда не девается, иначе
+   * читалка потеряла бы вместе с теснотой и содержание.
+   */
+  quiet?: boolean;
+  /** Пояс подставлен, состояние незнакомо: рисуется пунктиром. */
+  guessed?: boolean;
   onSelect?: (id: string) => void;
   onHoverChange?: (id: string, hovered: boolean) => void;
 }
@@ -45,6 +67,12 @@ export function ProjectNode({
   x,
   y,
   hoverSummary,
+  beltLabel,
+  beltIndex,
+  beltCount,
+  linkCount,
+  quiet = false,
+  guessed = false,
   onSelect,
   onHoverChange,
   className,
@@ -52,6 +80,16 @@ export function ProjectNode({
 }: ProjectNodeProps) {
   const tooltipId = useId();
   const label = statusLabel ?? statusLabels[status];
+
+  // Имя кнопки достраивается только тем, что передали. Пустые части не
+  // подставляются пустыми словами: «Пояс undefined из 6» хуже, чем ничего.
+  const parts = [`${title}.`, `${label}.`];
+  if (beltLabel && beltIndex && beltCount) {
+    parts.push(`Пояс ${beltIndex} из ${beltCount}: ${beltLabel}.`);
+  }
+  if (linkCount !== undefined) {
+    parts.push(linkCount > 0 ? `Связей: ${linkCount}.` : 'Связей нет.');
+  }
 
   return (
     <div
@@ -62,6 +100,8 @@ export function ProjectNode({
         selected && styles.selected,
         dimmed && styles.dimmed,
         updated && styles.updated,
+        quiet && styles.quiet,
+        guessed && styles.guessed,
         className,
       )}
       style={{ left: x, top: y }}

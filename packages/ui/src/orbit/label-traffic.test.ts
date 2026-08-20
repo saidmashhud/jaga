@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { crowdedIds, type Box } from './LabelTraffic';
+import { crowdedIds, type Box } from './label-traffic';
 
 /** Подпись шириной 100 и высотой 30 в заданной точке. */
 function at(left: number, top: number, w = 100, h = 30): Box {

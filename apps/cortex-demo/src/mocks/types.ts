@@ -12,11 +12,20 @@ export interface Project {
   status: ProjectStatus;
   statusLabel: string;
   /**
-   * Scene coordinates. `z` extends the §12 model for the 3D scene and carries
-   * meaning rather than decoration: positive z is nearer the viewer, and the
-   * scene puts what needs a decision closest. The SVG fallback ignores `z`.
+   * Место на сцене. `z` остаётся в ответе службы, но больше никем не рисуется:
+   * сцена стала плоской, и глубина, несшая ось внимания, переехала в
+   * расстояние от ядра.
    */
   position: { x: number; y: number; z: number };
+  /**
+   * Пояс внимания, 1..6 от ядра наружу: решение, риск, внимание, в работе,
+   * стабильно, на паузе. Считает служба — она же расставляет узлы, и вторая
+   * таблица радиусов на странице разошлась бы с ней при первом же новом
+   * состоянии.
+   */
+  belt?: number;
+  /** Состояние незнакомо, пояс подставлен. Такой узел рисуется пунктиром. */
+  beltGuessed?: boolean;
   size: 'sm' | 'md' | 'lg';
   updatedAt: string;
   summary: string;

@@ -59,13 +59,14 @@ async function boot() {
   // проектов, и интерфейс принимал одно за другое.
   markSource(loaded ? 'live' : 'sample');
   if (loaded) {
-    const { projects, connections, focus, lenses, events, kinds } = loaded.data;
+    const { projects, connections, focus, lenses, events, kinds, shape } = loaded.data;
     hydrate({
       projects,
       connections,
       focus,
       lenses,
       kinds,
+      shape,
       recommendation: loaded.data.recommendation,
       activities: events.map(toActivity),
       // Окно дорожки — неделя в обе стороны, ровно то, что показывает шкала
@@ -87,6 +88,7 @@ async function boot() {
           // Пустой словарь видов не кладём поверх непустого: одна осечка сети
           // иначе стирает выбор вида прямо в открытой форме.
           ...(d.kinds.length > 0 ? { kinds: d.kinds } : {}),
+          ...(d.shape ? { shape: d.shape } : {}),
           recommendation: d.recommendation,
           activities: d.events.map(toActivity),
           trackEvents: d.events.map((e) => toTrackEvent(e, 24 * 7)),
