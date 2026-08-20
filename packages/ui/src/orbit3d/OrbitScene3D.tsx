@@ -1,10 +1,19 @@
-import { useRef, useState, type ReactNode } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { Environment, Lightformer, OrbitControls } from '@react-three/drei';
-import { Physics } from '@react-three/rapier';
-import { NodePositionsProvider, useCreateNodePositionStore } from './node-positions';
-import { SceneEffects, type EffectQuality } from './SceneEffects';
-import { sceneColors } from './scene-tokens';
+import { useRef, useState, type ReactNode } from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
+import { Environment, Lightformer, OrbitControls } from "@react-three/drei";
+import { Physics } from "@react-three/rapier";
+import {
+  NodePositionsProvider,
+  useCreateNodePositionStore,
+} from "./node-positions";
+import { LabelTraffic } from "./LabelTraffic";
+import {
+  LabelRegistryProvider,
+  useCreateLabelRegistry,
+} from "./label-registry";
+import { FitCamera } from "./FitCamera";
+import { SceneEffects, type EffectQuality } from "./SceneEffects";
+import { sceneColors } from "./scene-tokens";
 
 export interface OrbitScene3DProps {
   /** Post-processing tier; see useSceneCapabilities for the default policy. */
@@ -86,7 +95,7 @@ function CameraRig({
  * Node labels are DOM (drei <Html>) so the scene keeps keyboard access.
  */
 export function OrbitScene3D({
-  quality = 'bloom',
+  quality = "bloom",
   dpr = [1, 1.5],
   reducedMotion = false,
   autoRotate = true,
@@ -96,6 +105,7 @@ export function OrbitScene3D({
   className,
 }: OrbitScene3DProps) {
   const store = useCreateNodePositionStore();
+  const labels = useCreateLabelRegistry();
   // Where the pointer went down — used to tell a click apart from a camera drag
   // so that rotating the scene does not deselect the current project.
   const downPos = useRef<{ x: number; y: number } | null>(null);
@@ -115,7 +125,10 @@ export function OrbitScene3D({
       onPointerMissed={(event) => {
         const down = downPos.current;
         // treat as a drag (camera orbit), not a click on empty space
-        if (down && Math.hypot(event.clientX - down.x, event.clientY - down.y) > 6) {
+        if (
+          down &&
+          Math.hypot(event.clientX - down.x, event.clientY - down.y) > 6
+        ) {
           return;
         }
         onClearSelection?.();
@@ -127,7 +140,16 @@ export function OrbitScene3D({
       <fog attach="fog" args={[sceneColors.background, 26, 46]} />
 
       <NodePositionsProvider value={store}>
-        {/*
+        <LabelRegistryProvider value={labels}>
+          {/*
+          Двое следят за тем, чтобы сцену можно было читать: один разводит
+          налезающие подписи, другой подбирает кадр под раскладку. Оба живут
+          здесь, а не в вызывающем коде: узлы расставляет физика внутри
+          канваса, и снаружи их расположение никому не известно.
+        */}
+          <LabelTraffic registry={labels} store={store} />
+          <FitCamera registry={labels} store={store} />
+          {/*
           No cursor-repeller body here, unlike the pmndrs ballpit demos: a
           collider under the pointer physically shoves a node out from under
           the click, and here nodes are the primary control, not decoration.
@@ -137,10 +159,11 @@ export function OrbitScene3D({
           boundary that catches it sits OUTSIDE this Canvas (see OrbitWorkspace).
           A <Suspense> placed here instead leaves physics suspended forever.
         */}
-        <Physics timeStep="vary" gravity={[0, 0, 0]} paused={reducedMotion}>
-          <ReadySignal onReady={onReady} />
-          {children}
-        </Physics>
+          <Physics timeStep="vary" gravity={[0, 0, 0]} paused={reducedMotion}>
+            <ReadySignal onReady={onReady} />
+            {children}
+          </Physics>
+        </LabelRegistryProvider>
       </NodePositionsProvider>
 
       {/*

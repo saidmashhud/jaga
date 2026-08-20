@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
@@ -6,6 +6,7 @@ import { BallCollider, RigidBody, type RapierRigidBody } from '@react-three/rapi
 import { easing } from 'maath';
 import type { SemanticStatus } from '@cortex/tokens';
 import { nodeVector, useNodePositionStore } from './node-positions';
+import { useLabelRegistry } from './label-registry';
 import { nodeRadius, statusMaterial } from './scene-tokens';
 import styles from './ProjectSphere.module.css';
 
@@ -60,10 +61,26 @@ export function ProjectSphere({
   onSelect,
   onHoverChange,
 }: ProjectSphereProps) {
+  const labelRef = useRef<HTMLDivElement>(null);
+  const registry = useLabelRegistry();
+
   const body = useRef<RapierRigidBody>(null);
   const mesh = useRef<THREE.Mesh>(null);
   const [hovered, setHovered] = useState(false);
   const store = useNodePositionStore();
+
+  // Подпись отдаётся разводящему: он один видит все и решает, чью показать,
+  // когда две налезают друг на друга. Сама подпись о соседях не знает.
+  useEffect(() => {
+    registry.set(id, { ref: labelRef, z: anchor[2] });
+    return () => {
+      registry.delete(id);
+      // Координаты живут в общей карте, которая сама себя не чистит: без этого
+      // удалённый проект остаётся в ней навсегда и продолжает растягивать
+      // рамку камеры на место, где давно ничего нет.
+      store.delete(id);
+    };
+  }, [registry, store, id, anchor]);
 
   const radius = nodeRadius[size];
   const material = statusMaterial[status];
@@ -153,6 +170,10 @@ export function ProjectSphere({
         style={{ pointerEvents: 'none' }}
       >
         <div
+          // Ссылка именно на подпись, а не на обёртку drei: разводящий мерит
+          // её место на экране и на ней же ставит признак тесноты — на том же
+          // элементе, к которому привязаны правила вида.
+          ref={labelRef}
           className={`${styles.label} ${dimmed ? styles.dimmed : ''} ${
             reducedMotion ? styles.noMotion : ''
           }`}
