@@ -105,6 +105,8 @@ export async function loadFromApi(): Promise<{ data: CortexData; tenant: string 
       cache: 'no-store',
     })
       .then((r) => (r.ok ? r.json() : null))
+      // Служба отвечает 200 с brief: null, когда бриф ещё не собран.
+      .then((b) => (b && b.title ? b : null))
       .then((b) =>
         b
           ? ({

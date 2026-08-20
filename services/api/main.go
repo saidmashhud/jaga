@@ -376,7 +376,10 @@ func main() {
 		b, err := s.TodayBrief(r.Context(), tenantOf(r))
 		switch {
 		case errors.Is(err, store.ErrNotFound):
-			writeErr(w, http.StatusNotFound, "бриф на сегодня ещё не собран")
+			// Не 404: «ещё не собран» — обычное состояние утра, а не отказ.
+			// Браузер печатал 404 в консоль красным, и человек видел ошибку
+			// там, где ничего не случилось.
+			writeJSON(w, http.StatusOK, map[string]any{"brief": nil})
 		case err != nil:
 			writeErr(w, http.StatusInternalServerError, err.Error())
 		default:
