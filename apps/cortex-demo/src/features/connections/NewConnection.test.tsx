@@ -94,6 +94,58 @@ describe('форма связи', () => {
     expect(within(форма).getByRole('button', { name: 'Связать' })).toBeDisabled();
   });
 
+  it('фокус входит в форму, а не остаётся на открывшей кнопке', async () => {
+    // Панель объявлена aria-modal: для читалки экрана всё за её пределами
+    // перестало существовать. Оставить фокус снаружи — оставить человека в
+    // тишине, на кнопке, которой для него уже нет.
+    const форма = await открытьФорму('Didi');
+    expect(форма.contains(document.activeElement)).toBe(true);
+  });
+
+  it('обход по Tab не выходит из формы', async () => {
+    // aria-modal объявляет, что за пределами панели ничего нет. Если фокус
+    // туда уходит, читалка молчит, а человек не понимает, где он.
+    const форма = await открытьФорму('Didi');
+    for (let i = 0; i < 40; i++) {
+      await userEvent.tab();
+      expect(форма.contains(document.activeElement)).toBe(true);
+    }
+  });
+
+  it('после закрытия фокус возвращается на открывшую кнопку', async () => {
+    await открытьФорму('Didi');
+    await userEvent.click(screen.getByRole('button', { name: 'Отмена' }));
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Связать с другим' }));
+  });
+
+  it('«Снять выбор» при открытой форме снимает выбор, а не только гасит форму', async () => {
+    // Кнопка стоит в другой панели и видна одновременно с формой. Нажатие,
+    // после которого выбор остаётся, читается как «кнопка не работает».
+    await открытьФорму('Didi');
+    await userEvent.click(screen.getByRole('button', { name: 'Снять выбор' }));
+    expect(screen.queryByRole('dialog', { name: 'Новая связь' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Снять выбор' })).not.toBeInTheDocument();
+  });
+
+  it('уход в раздел закрывает форму', async () => {
+    // Панель раздела занимает тот же прямоугольник: две легли бы друг на друга.
+    await открытьФорму('Didi');
+    await userEvent.click(screen.getByRole('button', { name: 'Focus' }));
+    expect(screen.queryByRole('dialog', { name: 'Новая связь' })).not.toBeInTheDocument();
+  });
+
+  it('без списка видов от службы форма не требует невыполнимого', async () => {
+    // Кнопка, зовущая выбрать вид, когда выбирать не из чего, — издевательство.
+    markSource('live');
+    hydrate({ projects, connections, kinds: [] });
+    render(<App />);
+    await userEvent.click(screen.getByRole('button', { name: /^Didi\./ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Связать с другим' }));
+    const форма = screen.getByRole('dialog', { name: 'Новая связь' });
+    expect(within(форма).getByText(/не отдала список видов/)).toBeInTheDocument();
+    expect(within(форма).getByRole('button', { name: 'Связать' })).toBeDisabled();
+  });
+
   it('до службы уходит ровно то, что человек видел', async () => {
     const отправлено: Array<{ url: string; body: unknown }> = [];
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => {

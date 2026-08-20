@@ -84,7 +84,9 @@ async function boot() {
           connections: d.connections,
           focus: d.focus,
           lenses: d.lenses,
-          kinds: d.kinds,
+          // Пустой словарь видов не кладём поверх непустого: одна осечка сети
+          // иначе стирает выбор вида прямо в открытой форме.
+          ...(d.kinds.length > 0 ? { kinds: d.kinds } : {}),
           recommendation: d.recommendation,
           activities: d.events.map(toActivity),
           trackEvents: d.events.map((e) => toTrackEvent(e, 24 * 7)),

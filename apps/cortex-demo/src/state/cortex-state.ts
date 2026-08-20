@@ -211,7 +211,10 @@ export function cortexReducer(state: CortexState, action: CortexAction): CortexS
     case 'toggle-ai-mode':
       return { ...state, aiMode: !state.aiMode };
     case 'set-navigation':
-      return { ...state, navigationMode: action.mode };
+      // Форма связи гаснет при уходе в раздел: панель раздела занимает ровно
+      // тот же прямоугольник слева, и две накладывались друг на друга — та,
+      // что нарисована позже, прятала кнопку «Закрыть» у первой.
+      return { ...state, navigationMode: action.mode, linkDraft: null };
     case 'toggle-recommendation':
       return { ...state, recommendationExpanded: !state.recommendationExpanded };
     case 'set-aside-open':
@@ -221,12 +224,20 @@ export function cortexReducer(state: CortexState, action: CortexAction): CortexS
     case 'dismiss-toast':
       return { ...state, toast: null };
     case 'clear-selection':
-      // При открытой форме связи снятие выбора закрывает её, а не оставляет
-      // висеть с источником, которого больше нет на сцене. Escape и клик по
-      // пустому месту здесь означают одно: «передумал».
-      if (state.linkDraft) return { ...state, linkDraft: null };
+      // Форма связи закрывается вместе с выбором, а не вместо него.
+      //
+      // Раньше здесь стоял ранний возврат: при открытой форме действие только
+      // гасило её. Задумано было под клик по пустому месту сцены, но то же
+      // действие шлёт кнопка «Снять выбор» в карточке проекта — а она видна
+      // одновременно с формой, на другом краю экрана. Нажатие на неё не
+      // делало ничего из обещанного: выбор оставался, карточка оставалась,
+      // пропадала панель совсем в другом месте.
+      //
+      // Escape при этом всё равно закрывает форму первым и выбор не трогает:
+      // его перехватывает сама панель.
       return {
         ...state,
+        linkDraft: null,
         selectedProjectId: null,
         hoveredProjectId: null,
         enteredProjectId: null,

@@ -146,6 +146,26 @@ func TestErrorClasses(t *testing.T) {
 	}
 }
 
+// Опознаватель, заданный человеком, выжимается так же, как выведенный из
+// названия.
+//
+// Без этого в него попадала произвольная строка: она уходит в адрес, в
+// подсказку модели и в имя связи, где двойной дефис ломает разбор на концы.
+func TestSuppliedIDIsSquashed(t *testing.T) {
+	cases := map[string]string{
+		"Моя Кофейня":   "moya-kofeynya",
+		"a--b":          "a-b",
+		"  Didi  ":      "didi",
+		"!!!":           "",
+		"Ferro Metal 2": "ferro-metal-2",
+	}
+	for in, want := range cases {
+		if got := slug(in); got != want {
+			t.Errorf("slug(%q) = %q, ожидалось %q", in, got, want)
+		}
+	}
+}
+
 // Все шесть видов, объявленных в интерфейсе, обязаны проходить проверку.
 //
 // Список один и тот же — но проверка ходит через kindOf, и разойтись они
@@ -167,8 +187,16 @@ func TestEveryKindPasses(t *testing.T) {
 // Имя связи собирается из концов — на этом держится отказ базы заводить
 // вторую такую же.
 func TestConnectionID(t *testing.T) {
-	if got := ConnectionID("kofeynya", "didi"); got != "kofeynya-didi" {
+	if got := ConnectionID("kofeynya", "didi"); got != "kofeynya--didi" {
 		t.Errorf("получено %q", got)
+	}
+
+	// Одинарный дефис законен внутри опознавателя, и склейка им была
+	// необратима: (invent-sale, didi) и (invent, sale-didi) давали одну
+	// строку. База отказывала во второй связи как в двойнике той, которой
+	// человек в глаза не видел, а удаление по имени сняло бы не ту строку.
+	if ConnectionID("invent-sale", "didi") == ConnectionID("invent", "sale-didi") {
+		t.Error("разные пары получили одно имя")
 	}
 	// Обратная связь — другое имя, и база её пропустит. Это осознанно: для
 	// направленных видов «А кормит Б» и «Б кормит А» — разные утверждения.

@@ -53,15 +53,7 @@ export function NewConnection() {
   const [nag, setNag] = useState<string | null>(null);
   const panel = useRef<HTMLFormElement>(null);
   const targetField = useRef<HTMLSelectElement>(null);
-
-  // Фокус входит в панель при открытии: иначе человек, пришедший с клавиатуры,
-  // остаётся стоять на кнопке позади формы и не догадывается, что она открыта.
-  const opened = draft !== null;
-  useEffect(() => {
-    if (!opened) return;
-    const first = panel.current?.querySelector<HTMLElement>('select, input, button');
-    first?.focus();
-  }, [opened]);
+  const kindField = useRef<HTMLInputElement>(null);
 
   const source = draft ? projects.find((p) => p.id === draft.sourceId) : undefined;
   const target = draft?.targetId ? projects.find((p) => p.id === draft.targetId) : undefined;
@@ -93,7 +85,12 @@ export function NewConnection() {
     // остаётся гадать, чего от него хотят. Нажатие называет недостающее.
     if (notReady) {
       setNag(notReady);
-      targetField.current?.focus();
+      // Фокус на то поле, о котором речь. Раньше он безусловно уезжал в список
+      // проектов — в том числе когда список уже заполнен верно, а не хватает
+      // вида связи: человека швыряло на правильный ответ, а неправильный
+      // оставался за глазами.
+      const guilty = draft.targetId ? kindField.current : targetField.current;
+      guilty?.focus();
       return;
     }
     if (known) return;
@@ -164,6 +161,11 @@ export function NewConnection() {
         ) : (
           <select
             ref={targetField}
+            // Поле связано с текстом ошибки: он живёт отдельным абзацем внизу
+            // формы, и читалка, приведя человека сюда, иначе прочла бы поле
+            // как обычное, а причину отказа он услышал бы один раз и забыл.
+            aria-invalid={nag !== null && !draft.targetId}
+            aria-describedby={nag || err ? 'link-err' : undefined}
             value={draft.targetId ?? ''}
             onChange={(e) => {
               dispatch({ type: 'set-link-target', id: e.target.value || null });
@@ -187,7 +189,11 @@ export function NewConnection() {
           Служба не отдала список видов связи — обновите страницу
         </p>
       ) : (
-        <fieldset className={styles.group}>
+        <fieldset
+          className={styles.group}
+          aria-invalid={nag !== null && Boolean(draft.targetId) && !kind}
+          aria-describedby={nag || err ? 'link-err' : undefined}
+        >
           <legend className={styles.label}>Что между ними</legend>
           {/* Разбито по флагу службы, а не по здешнему порядку: появится седьмой
               вид — он встанет в свою группу сам. */}
@@ -199,9 +205,12 @@ export function NewConnection() {
                 <p className={styles.groupTitle}>
                   {half === 'directed' ? 'здесь важно, что откуда' : 'здесь порядок не важен'}
                 </p>
-                {list.map((k) => (
+                {list.map((k, i) => (
                   <label key={k.id} className={draft.kindId === k.id ? styles.choiceOn : styles.choice}>
                     <input
+                      // Ссылка на первую из всех — на неё уводит фокус, когда
+                      // не выбран вид.
+                      ref={half === 'directed' && i === 0 ? kindField : undefined}
                       type="radio"
                       name="kind"
                       value={k.id}
@@ -286,13 +295,21 @@ export function NewConnection() {
       )}
 
       {(err || nag) && (
-        <p className={styles.err} role="alert">
+        <p className={styles.err} role="alert" id="link-err">
           {err ?? nag}
         </p>
       )}
 
       <div className={styles.actions}>
-        <button className={styles.submit} type="submit" disabled={busy || Boolean(known)}>
+        {/* Кнопка не запирается на незаполненных полях: запертая кнопка не
+            объясняет, чего от человека хотят, и он остаётся гадать. Нажатие
+            называет недостающее. Два исключения — когда в форме сделать
+            нечего: пара уже связана, и виды связи не пришли от службы. */}
+        <button
+          className={styles.submit}
+          type="submit"
+          disabled={busy || Boolean(known) || kinds.length === 0}
+        >
           {busy ? 'Связываем' : 'Связать'}
         </button>
         <button className={styles.cancel} type="button" onClick={() => dispatch({ type: 'close-link' })}>

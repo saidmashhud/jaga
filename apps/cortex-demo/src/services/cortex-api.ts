@@ -107,6 +107,32 @@ async function fetchConfig(): Promise<RuntimeConfig> {
  * шестого. Отказ любого из них роняет загрузку целиком — половина данных
  * на сцене хуже, чем честный откат к мокам.
  */
+/**
+ * Словарь видов связи — один раз и навсегда.
+ *
+ * Неудачная попытка не запоминается: следующий заход спросит снова. Пустой
+ * список — законный ответ только тогда, когда служба его действительно
+ * отдала пустым.
+ */
+let kindsOnce: ConnectionKind[] | null = null;
+
+async function loadKinds(base: string, tenant: string): Promise<ConnectionKind[]> {
+  if (kindsOnce !== null) return kindsOnce;
+  try {
+    const r = await fetch(`${base}/v1/connection-kinds`, {
+      headers: { 'X-Tenant-Id': tenant },
+      cache: 'no-store',
+    });
+    if (!r.ok) return [];
+    const body = await r.json();
+    const list = (body?.kinds ?? []) as ConnectionKind[];
+    if (list.length > 0) kindsOnce = list;
+    return list;
+  } catch {
+    return [];
+  }
+}
+
 export async function loadFromApi(): Promise<{ data: CortexData; tenant: string } | null> {
   const cfg = await readConfig();
   // Отсутствующий адрес — работаем на моках. Адрес «/» означает тот же
@@ -156,13 +182,13 @@ export async function loadFromApi(): Promise<{ data: CortexData; tenant: string 
     // Виды связи — так же отдельно, как бриф: без них форма связи не
     // откроется, но сцена и лента прекрасно живут, и ронять из-за них всю
     // загрузку не за что.
-    const kinds = await fetch(`${base}/v1/connection-kinds`, {
-      headers: { 'X-Tenant-Id': tenant },
-      cache: 'no-store',
-    })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((b) => (b?.kinds ?? []) as ConnectionKind[])
-      .catch(() => [] as ConnectionKind[]);
+    //
+    // И только один раз за жизнь страницы. Это словарь, а не данные: он не
+    // меняется между тиками опроса. Пока он спрашивался каждые полминуты,
+    // одна осечка сети превращалась в пустой список, ложилась поверх хорошего
+    // и стирала выбранный вид прямо в открытой форме — человек посреди работы
+    // получал «служба не отдала список видов связи».
+    const kinds = await loadKinds(base, tenant);
 
     const [projects, connections, focus, lenses, events] = await Promise.all([
       get<Project[]>('/v1/projects', 'projects'),

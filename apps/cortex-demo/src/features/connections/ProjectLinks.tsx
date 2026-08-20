@@ -20,6 +20,8 @@ export function ProjectLinks({ projectId, editable }: { projectId: string; edita
   const [err, setErr] = useState<string | null>(null);
 
   const titleOf = (id: string) => mockCortexService.getProject(id)?.title ?? id;
+  const kinds = mockCortexService.getConnectionKinds();
+  const kindOf = (type: string) => kinds.find((k) => k.id === type) ?? null;
 
   async function remove(id: string) {
     setBusy(id);
@@ -50,8 +52,19 @@ export function ProjectLinks({ projectId, editable }: { projectId: string; edita
         links.map((c) => (
           <div key={c.id} className={styles.row}>
             <span className={styles.phrase}>
-              {titleOf(c.sourceId)} <span className={styles.mid}>→</span> {titleOf(c.targetId)}
-              <span className={styles.note}>{c.label || 'без подписи'}</span>
+              {/* Читается той же фразой, что в форме: «Кофейня даёт деньги
+                  Фрилансу». Стрелка стоит только у направленных видов — у
+                  взаимных она утверждала бы порядок, которого нет, и тот же
+                  список показывал бы «Кофейня → Metan» там, где служба
+                  считает концы равноправными. */}
+              {titleOf(c.sourceId)}{' '}
+              <span className={styles.mid}>{kindOf(c.type)?.directed === false ? '—' : '→'}</span>{' '}
+              {kindOf(c.type)?.phrase ?? c.type}{' '}
+              <span className={styles.mid}>{kindOf(c.type)?.directed === false ? '—' : '→'}</span>{' '}
+              {titleOf(c.targetId)}
+              {c.label && c.label !== kindOf(c.type)?.name && (
+                <span className={styles.note}>{c.label}</span>
+              )}
             </span>
             {editable &&
               (sure === c.id ? (
