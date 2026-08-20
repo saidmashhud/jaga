@@ -292,3 +292,50 @@
 .guessed .circle {
   border-style: dashed;
 }
+
+/* Уступил в тесноте.
+ *
+ * Не исчезает — ужимается до имени и глушится: подпись, пропадающая при
+ * движении сцены, читается как сбой. Место при этом освобождается, а сосед,
+ * который ближе к ядру, читается целиком. */
+.root[data-crowded='yes'] .meta {
+  opacity: 0.4;
+}
+.root[data-crowded='yes'] .subtitle,
+.root[data-crowded='yes'] .statusText {
+  display: none;
+}
+.root[data-crowded='yes']:hover .meta,
+.root[data-crowded='yes']:focus-within .meta {
+  opacity: 1;
+}
+.root[data-crowded='yes']:hover .subtitle,
+.root[data-crowded='yes']:focus-within .subtitle,
+.root[data-crowded='yes']:hover .statusText,
+.root[data-crowded='yes']:focus-within .statusText {
+  display: block;
+}
+
+
+/* Карта — не карточка.
+ *
+ * Узел печатал три строки: имя, подзаголовок и состояние. На шести делах это
+ * восемнадцать строк текста поверх колец, и карта переставала читаться —
+ * глазу не за что зацепиться, всё одинаково подписано. Остаётся имя; остальное
+ * человек получает, когда занялся именно этим делом.
+ *
+ * Состояние при этом не теряется: его несут цвет узла и кольцо, на котором он
+ * стоит, — а это и есть то, ради чего карта нарисована.
+ */
+.terse .subtitle,
+.terse .statusText {
+  display: none;
+}
+.terse:hover .subtitle,
+.terse:hover .statusText,
+.terse:focus-within .subtitle,
+.terse:focus-within .statusText,
+.terse.selected .subtitle,
+.terse.selected .statusText {
+  display: block;
+}

@@ -57,7 +57,18 @@ async function boot() {
   // выводится потом из того, пусто на экране или нет. Живое, но пустое
   // пространство ничем не отличается от образца, если судить по количеству
   // проектов, и интерфейс принимал одно за другое.
-  markSource(loaded ? 'live' : 'sample');
+  // Вошедшему человеку образец не показываем никогда.
+  //
+  // Осечка одной ручки — служба перезапускалась — роняла загрузку целиком, и
+  // на месте своего пространства человек видел шесть чужих дел как свои. Это
+  // худшее, что продукт может показать: он не отличит их от своих, пока не
+  // попробует что-нибудь с ними сделать. Пустая карта и слово «служба
+  // недоступна» честнее.
+  const signedIn = who.required && who.signedIn;
+  if (!loaded && signedIn) {
+    hydrate({ projects: [], connections: [], focus: [], lenses: [], activities: [], trackEvents: [] });
+  }
+  markSource(loaded || signedIn ? 'live' : 'sample');
   if (loaded) {
     const { projects, connections, focus, lenses, events, kinds, shape } = loaded.data;
     hydrate({

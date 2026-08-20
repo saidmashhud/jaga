@@ -32,15 +32,20 @@ export function BeltRings({ shape, counts }: { shape: SceneShape; counts: Map<nu
               // и туман, здесь делает расстояние от ядра.
               opacity={0.5 - (b.index - 1) * 0.064}
             />
-            {/* Подпись на девяти часах, прямо на линии: там она не попадает
-                ни в один узел при обычной расстановке и не спорит с ними. */}
+            {/* Подпись — прямо над кольцом, на двенадцати часах.
+                Веером по углам они разошлись между собой, но полезли на имена
+                дел: узлы стоят на тех же кольцах. Столбиком над ядром они
+                выстраиваются в шкалу, которую видно как шкалу, а не как
+                разбросанные слова. */}
             <text
-              x={c.x - b.radius + 6}
-              y={c.y - 4}
+              x={c.x}
+              y={c.y - b.radius - 5}
+              textAnchor="middle"
+              data-scale-label=""
               fill="currentColor"
-              fontSize={9}
-              letterSpacing={1.4}
-              opacity={busy ? 0.55 : 0.28}
+              fontSize={8.5}
+              letterSpacing={1.6}
+              opacity={busy ? 0.5 : 0.22}
             >
               {BELT_NAME[b.status]?.toUpperCase() ?? b.status}
               {busy ? ` · ${counts.get(b.index)}` : ''}
@@ -63,9 +68,15 @@ export function BeltRings({ shape, counts }: { shape: SceneShape; counts: Map<nu
         strokeDasharray="1 5"
         opacity={0.45}
       />
+      {/* Подпись черты встаёт в тот же столбик, что и подписи колец, — между
+          «требует внимания» и «в работе». Там она читается как рубеж шкалы, а
+          не как ещё одно слово, брошенное на карту; внизу она ложилась прямо
+          на узлы. */}
       <text
-        x={c.x + shape.decisionRadius * 0.72}
-        y={c.y + shape.decisionRadius * 0.78}
+        x={c.x}
+        y={c.y - shape.decisionRadius - 5}
+        data-scale-label=""
+        textAnchor="middle"
         fill="var(--color-accent-violet)"
         fontSize={9}
         letterSpacing={1.4}

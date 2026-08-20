@@ -1,17 +1,16 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { iconRegistry } from '@cortex/icons';
 import { statusLabels } from '@cortex/tokens';
 import {
-  ConnectionLabel,
   OrbitCanvas,
   OrbitConnection,
   ProjectNode,
   SceneGlow,
   UserCoreNode,
-  connectionPointAt,
 } from '@cortex/ui';
 import { mockCortexService } from '../../services/mock-cortex-service';
 import { BeltRings } from './BeltRings';
+import { useLabelTraffic } from './useLabelTraffic';
 import { BELT_NAME, inBeltOrder, labelsVisible, linkCounts, sizeByLinks } from './belts';
 import { useCortex } from '../../state/CortexProvider';
 import type { ConnectionType } from '../../mocks/types';
@@ -69,6 +68,11 @@ export function OrbitScene() {
 
   const activeId = state.hoveredProjectId ?? state.selectedProjectId;
 
+  // Разводка налезающих имён. Меряется настоящее место на экране, поэтому
+  // пересчитывается после каждой перерисовки, меняющей расстановку.
+  const board = useRef<HTMLDivElement>(null);
+  useLabelTraffic(board, [projects, scale, activeId, state.selectedProjectId]);
+
   /** ids connected to the active (hovered/selected) node, incl. itself */
   const relatedIds = useMemo(() => {
     if (!activeId) return null;
@@ -103,7 +107,7 @@ export function OrbitScene() {
       : null;
 
   return (
-    <div className={styles.root}>
+    <div className={styles.root} ref={board}>
       {hintText && (
         <div className={styles.hint} role="status">
           <span>{hintText}</span>
@@ -145,6 +149,11 @@ export function OrbitScene() {
                   key={connection.id}
                   source={source.position}
                   target={target.position}
+                  // Почти прямая. Дуга в 0.14 длины была украшением на
+                  // свободной раскладке, а на кольцах она уводит линию через
+                  // всю карту: связь соседей по поясу выгибалась наружу до
+                  // чужого кольца и читалась как связь совсем с другим делом.
+                  curvature={0.035}
                   color={connectionColor[connection.type]}
                   strength={connection.strength}
                   animated={connection.animated}
@@ -164,37 +173,12 @@ export function OrbitScene() {
             color={mockCortexService.getProjectColor(selectedProject.id)}
           />
         )}
-        {connections.map((connection) => {
-          if (!connection.label) return null;
-          const source = projects.find((p) => p.id === connection.sourceId);
-          const target = projects.find((p) => p.id === connection.targetId);
-          if (!source || !target) return null;
-          const mid = connectionPointAt(
-            source.position,
-            target.position,
-            connection.labelT ?? 0.5,
-          );
-          const touchesActive =
-            activeId != null &&
-            (connection.sourceId === activeId || connection.targetId === activeId);
-          const dimmed =
-            (lensIds &&
-              !(lensIds.has(connection.sourceId) && lensIds.has(connection.targetId)) &&
-              !touchesActive) ||
-            (activeId != null && !touchesActive);
-          return (
-            <ConnectionLabel
-              key={`label-${connection.id}`}
-              x={mid.x}
-              y={mid.y}
-              dimmed={Boolean(dimmed)}
-              emphasized={touchesActive}
-              className={styles.connectionLabel}
-            >
-              {connection.label}
-            </ConnectionLabel>
-          );
-        })}
+        {/* Подписей связей на полотне нет.
+            Они висели между узлами — ровно там, где стоят имена дел, — и были
+            главным источником каши: «используют одну команду» ложилось поверх
+            «Nexus» и «Фриланс». Связь и без слова видна линией, а прочесть её
+            целиком можно в карточке проекта, где для этого есть место и где
+            рядом стоит «Убрать». */}
         {/* Ядро — начало отсчёта шкалы, а не живой объект: дыхание снято.
             Один движущийся предмет находится боковым зрением мгновенно; когда
             движется и он, и что-то ещё, оба читаются как помеха. */}
@@ -238,6 +222,7 @@ export function OrbitScene() {
                   beltCount={6}
                   linkCount={links}
                   quiet={!speaks}
+                  terse
                   guessed={project.beltGuessed}
                   x={project.position.x}
                   y={project.position.y}

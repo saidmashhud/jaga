@@ -33,8 +33,15 @@ export interface OrbitCanvasProps extends HTMLAttributes<HTMLDivElement> {
    * этого, и включать ей приближение задним числом незачем.
    */
   navigable?: boolean;
-  /** Сообщает наружу действующий масштаб: по нему решается, показывать ли подписи. */
-  onScaleChange?: (scale: number) => void;
+  /**
+   * Сообщает наружу РУЧНОЕ приближение, а не действующий масштаб.
+   *
+   * Порог показа подписей должен отсчитываться от того, насколько человек сам
+   * приблизил, а не от того, во сколько сцена вписалась в окно. Вписывающий
+   * масштаб зависит от высоты окна и на обычном экране равен 0.8 — по нему
+   * подписи внешних поясов не показывались никогда, ни на каком окне.
+   */
+  onScaleChange?: (zoom: number) => void;
 }
 
 /**
@@ -81,8 +88,8 @@ export function OrbitCanvas({
   // колесом на большом экране.
   const effective = scale * view.zoom;
   useEffect(() => {
-    onScaleChange?.(effective);
-  }, [effective, onScaleChange]);
+    onScaleChange?.(view.zoom);
+  }, [view.zoom, onScaleChange]);
 
   const handleBackgroundClick = (event: MouseEvent<HTMLDivElement>) => {
     if (event.target === event.currentTarget) onClearSelection?.();
@@ -152,7 +159,10 @@ export function OrbitCanvas({
         style={{
           width: sceneWidth,
           height: sceneHeight,
-          transform: `translate(-50%, -50%) scale(${scale})`,
+          // Порядок важен: сперва масштаб, затем сдвиг в пикселях экрана,
+          // затем центрирование. Тогда сдвиг остаётся экранным и не растёт
+          // вместе с приближением — а именно этого ждёт арифметика в view.ts.
+          transform: `translate(-50%, -50%) translate(${view.x}px, ${view.y}px) scale(${effective})`,
         }}
         onClick={handleBackgroundClick}
       >

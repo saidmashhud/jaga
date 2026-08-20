@@ -48,6 +48,13 @@ export interface ProjectNodeProps
   quiet?: boolean;
   /** Пояс подставлен, состояние незнакомо: рисуется пунктиром. */
   guessed?: boolean;
+  /**
+   * Короткая подпись: только имя дела.
+   *
+   * Для карты. В карточных местах узел по-прежнему печатает всё — там есть
+   * куда, и подзаголовок со состоянием читаются, а не мешают.
+   */
+  terse?: boolean;
   onSelect?: (id: string) => void;
   onHoverChange?: (id: string, hovered: boolean) => void;
 }
@@ -73,6 +80,7 @@ export function ProjectNode({
   linkCount,
   quiet = false,
   guessed = false,
+  terse = false,
   onSelect,
   onHoverChange,
   className,
@@ -101,11 +109,13 @@ export function ProjectNode({
         dimmed && styles.dimmed,
         updated && styles.updated,
         quiet && styles.quiet,
+        terse && styles.terse,
         guessed && styles.guessed,
         className,
       )}
       style={{ left: x, top: y }}
       data-node-id={id}
+      data-belt={beltIndex}
       onMouseEnter={() => onHoverChange?.(id, true)}
       onMouseLeave={() => onHoverChange?.(id, false)}
       {...rest}
@@ -126,7 +136,7 @@ export function ProjectNode({
         </span>
         <span className={styles.statusDot} aria-hidden="true" />
       </button>
-      <div className={styles.meta}>
+      <div className={styles.meta} data-node-meta="">
         <div className={styles.title}>{title}</div>
         {subtitle && <div className={styles.subtitle}>{subtitle}</div>}
         <div className={styles.statusText}>{label}</div>

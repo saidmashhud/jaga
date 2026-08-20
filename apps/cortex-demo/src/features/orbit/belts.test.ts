@@ -64,19 +64,22 @@ describe('размер по связям', () => {
 });
 
 describe('видимость подписей', () => {
-  it('на общем виде имён нет вовсе', () => {
-    expect(labelsVisible(0.5, 1)).toBe(false);
-    expect(labelsVisible(0.5, 6)).toBe(false);
+  it('по умолчанию названы все', () => {
+    // Порог отсчитывается от ручного приближения. Пока он считался от
+    // вписывающего масштаба, внешние имена не показывались НИ РАЗУ: на обычном
+    // окне сцена вписывается в 0.8, и порог 0.85 не брался никогда.
+    expect(labelsVisible(1, 1)).toBe(true);
+    expect(labelsVisible(1, 6)).toBe(true);
   });
 
-  it('середина заговаривает раньше края', () => {
-    // Край может молчать, середина говорит всегда: внутри черты решения
-    // подписи появляются первыми.
-    expect(labelsVisible(0.7, 3)).toBe(true);
-    expect(labelsVisible(0.7, 4)).toBe(false);
+  it('при отдалении край замолкает, середина говорит', () => {
+    expect(labelsVisible(0.6, 6)).toBe(false);
+    expect(labelsVisible(0.6, 3)).toBe(true);
   });
 
-  it('вблизи видно всё', () => {
-    expect(labelsVisible(1.2, 6)).toBe(true);
+  it('внутри черты решения имя не гаснет никогда', () => {
+    expect(labelsVisible(0.5, 1)).toBe(true);
+    expect(labelsVisible(0.5, 2)).toBe(true);
+    expect(labelsVisible(0.5, 3)).toBe(true);
   });
 });

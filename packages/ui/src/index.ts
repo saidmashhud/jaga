@@ -90,3 +90,4 @@ export {
 
 /* utils */
 export { cx } from './utils/cx';
+export { crowdedIds, type Box } from './orbit/label-traffic';
