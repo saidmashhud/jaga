@@ -346,6 +346,22 @@ func main() {
 		}
 	}))
 
+	// Убрать проект.
+	//
+	// Со всем, что на нём висело: связи уходят следом по внешнему ключу. Проект
+	// заводится в один жест, в том числе на пробу, — и убираться должен так же.
+	mux.HandleFunc("DELETE /v1/projects/{id}", guard(func(w http.ResponseWriter, r *http.Request) {
+		err := s.DeleteProject(r.Context(), tenantOf(r), r.PathValue("id"))
+		switch {
+		case errors.Is(err, store.ErrNotFound):
+			writeErr(w, http.StatusNotFound, "такого проекта нет")
+		case err != nil:
+			writeErr(w, http.StatusInternalServerError, err.Error())
+		default:
+			w.WriteHeader(http.StatusNoContent)
+		}
+	}))
+
 	// Убрать связь.
 	//
 	// Заводить, не имея чем убрать, — половина дела: связь определяет

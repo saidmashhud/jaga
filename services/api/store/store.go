@@ -715,6 +715,31 @@ func CheckConnection(c NewConnection) (NewConnection, error) {
 	return c, nil
 }
 
+// DeleteProject убирает проект вместе со всем, что на нём висело.
+//
+// Заводить, не имея чем убрать, — половина дела. Проект заводится в один жест,
+// в том числе по ошибке или на пробу, и без этого он остаётся в пространстве
+// навсегда: чужая строка в списке, лишний узел на карте, лишнее кольцо в
+// счётчике. Связи уходят следом по внешнему ключу — сама по себе связь с
+// исчезнувшим концом ничего не выражает.
+func (s *Store) DeleteProject(ctx context.Context, tenant, id string) error {
+	res, err := s.db.ExecContext(ctx,
+		`DELETE FROM projects WHERE tenant_id = $1 AND id = $2`, tenant, id)
+	if err != nil {
+		return fmt.Errorf("удаление проекта: %w", err)
+	}
+	// Тенант в условии — не украшение: без него опознаватель, известный со
+	// стороны, вычистил бы чужую строку.
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("удаление проекта: %w", err)
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // DeleteConnection убирает связь.
 //
 // Без этого форма заведения была бы наполовину: связь определяет расположение

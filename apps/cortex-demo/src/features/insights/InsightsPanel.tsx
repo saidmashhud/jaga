@@ -16,6 +16,7 @@ import {
 import { relativeTimeLabel } from '../../lib/relative-time';
 import { dataSource, isLive, mockCortexService } from '../../services/mock-cortex-service';
 import { ProjectLinks } from '../connections/ProjectLinks';
+import { RemoveProject } from '../projects/RemoveProject';
 import { useCortex } from '../../state/CortexProvider';
 import styles from './InsightsPanel.module.css';
 
@@ -146,6 +147,21 @@ export function InsightsPanel() {
                 )}
 
                 <ProjectLinks projectId={selectedProject.id} editable={live} />
+
+                {live && (
+                  <RemoveProject
+                    id={selectedProject.id}
+                    title={selectedProject.title}
+                    links={
+                      mockCortexService
+                        .getConnections()
+                        .filter(
+                          (c) =>
+                            c.sourceId === selectedProject.id || c.targetId === selectedProject.id,
+                        ).length
+                    }
+                  />
+                )}
               </Stack>
             </section>
           )}

@@ -1,0 +1,36 @@
+.act {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--color-text-tertiary);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.act:hover { color: var(--color-text-primary); }
+.act:focus-visible { box-shadow: var(--focus-ring); }
+
+/* Подтверждение — не красной кнопкой, а вопросом словами: человек должен
+   прочесть, что именно исчезнет, а не узнать это после. */
+.sure {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-surface);
+  box-shadow: inset 2px 0 0 var(--color-accent-orange);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+.row { display: flex; gap: 12px; align-items: baseline; }
+.danger {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--color-accent-orange);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.danger:focus-visible { box-shadow: var(--focus-ring); }
+.err { font-family: var(--font-family-mono); font-size: 0.72rem; color: var(--color-accent-orange); }
