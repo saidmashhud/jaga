@@ -97,11 +97,20 @@ export interface ConnectionKind {
  * действием человека. Кешируется обещание, а не результат: два действия,
  * начатых одновременно, не должны спрашивать дважды.
  */
-let configOnce: Promise<RuntimeConfig> | null = null;
+let configOnce: RuntimeConfig | null = null;
+let configInFlight: Promise<RuntimeConfig> | null = null;
 
-function readConfig(): Promise<RuntimeConfig> {
-  configOnce ??= fetchConfig();
-  return configOnce;
+async function readConfig(): Promise<RuntimeConfig> {
+  if (configOnce) return configOnce;
+  // Запоминаем только УДАЧНОЕ чтение. Неудачное запоминать нельзя: одна осечка
+  // сети при запуске делала бы записи мёртвыми до перезагрузки страницы —
+  // адрес службы неизвестен, отправлять некуда, и так до конца дня.
+  configInFlight ??= fetchConfig().finally(() => {
+    configInFlight = null;
+  });
+  const cfg = await configInFlight;
+  if (cfg.apiUrl) configOnce = cfg;
+  return cfg;
 }
 
 async function fetchConfig(): Promise<RuntimeConfig> {
@@ -351,6 +360,27 @@ export function postJSON<T>(path: string, body: unknown): Promise<Written<T>> {
 
 export function del(path: string): Promise<Written<void>> {
   return write<void>(path, 'DELETE');
+}
+
+/**
+ * Записи, ещё не разложенные по проектам.
+ *
+ * Разбор идёт минутами, и всё это время запись не видна нигде: подтверждение
+ * гаснет, на карте ничего не меняется, и человек решает, что не отправилось.
+ * Он пишет второй раз — и получает два одинаковых дела вместо одного.
+ */
+export async function loadPending(): Promise<Array<{ id: string; text: string; state: string }>> {
+  const cfg = await readConfig();
+  if (!cfg.apiUrl) return [];
+  const base = cfg.apiUrl.replace(/\/+$/, '');
+  try {
+    const r = await fetch(`${base}/v1/captures`, { cache: 'no-store' });
+    if (!r.ok) return [];
+    const body = await r.json();
+    return (body?.captures ?? []) as Array<{ id: string; text: string; state: string }>;
+  } catch {
+    return [];
+  }
 }
 
 export async function sendCapture(text: string): Promise<boolean> {

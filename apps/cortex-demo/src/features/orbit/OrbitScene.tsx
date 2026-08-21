@@ -8,7 +8,7 @@ import {
   SceneGlow,
   UserCoreNode,
 } from '@cortex/ui';
-import { mockCortexService } from '../../services/mock-cortex-service';
+import { dataSource, mockCortexService } from '../../services/mock-cortex-service';
 import { BeltRings } from './BeltRings';
 import { useLabelTraffic } from './useLabelTraffic';
 import { inBeltOrder, labelsVisible, linkCounts, sizeByLinks } from './belts';
@@ -106,6 +106,20 @@ export function OrbitScene() {
 
   return (
     <div className={styles.root} ref={board}>
+      {/* Завести проект.
+          Дверь к форме была заперта: она открывалась только из карточки
+          единственного проекта, то есть ровно один день в жизни пространства.
+          Место на карте, а не в разделах: человек стоит здесь, когда решает,
+          что у него появилось новое дело. */}
+      {dataSource() === 'live' && (
+        <button
+          type="button"
+          className={styles.add}
+          onClick={() => dispatch({ type: 'open-new-project' })}
+        >
+          + Новый проект
+        </button>
+      )}
       {hintText && (
         <div className={styles.hint} role="status">
           <span>{hintText}</span>

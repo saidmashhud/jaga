@@ -121,3 +121,33 @@
 .root [data-scale-label][data-crowded='yes'] {
   opacity: 0.1;
 }
+
+/* Завести проект — с карты.
+ *
+ * Слева сверху, где ничего не происходит: узлы живут в середине, подсказка о
+ * линзе приходит правее. Тихая, но всегда на месте — заводить дела человек
+ * будет не каждый день, а искать эту кнопку не должен ни одного раза. */
+.add {
+  position: absolute;
+  top: 18px;
+  left: 20px;
+  z-index: 4;
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-round);
+  background: color-mix(in srgb, var(--color-bg-elevated) 88%, transparent);
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition:
+    color var(--motion-normal) var(--easing-standard),
+    border-color var(--motion-normal) var(--easing-standard);
+}
+.add:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-border-strong);
+}
+.add:focus-visible {
+  box-shadow: var(--focus-ring);
+}
