@@ -1,15 +1,19 @@
 import { ContextComposer } from '@cortex/ui';
 import { useCortex } from '../../state/CortexProvider';
-import { Pending } from './Pending';
+import { LooseNotes } from './LooseNotes';
 
 export function ComposerBar() {
   const { state, dispatch, submitComposer } = useCortex();
 
   return (
     <>
-      {/* Что уже принято, но ещё не разобрано. Стоит над полем, чтобы запись
-          не пропадала из виду на те минуты, пока модель её читает. */}
-      <Pending version={state.addedActivities.length + (state.composerProcessing ? 1 : 0)} />
+      {/* Записи, до которых не дошли руки — ни ваши, ни модели. Стоят над
+          полем: там же, где человек их писал, и оттуда же до них можно
+          дотянуться. */}
+      <LooseNotes
+        version={state.addedActivities.length + (state.composerProcessing ? 1 : 0)}
+        onChange={() => window.location.reload()}
+      />
       <ContextComposer
         value={state.composerDraft}
         onChange={(value) => dispatch({ type: 'set-draft', value })}

@@ -472,6 +472,56 @@ func (s *Store) ApplyParse(ctx context.Context, tenant, captureID, projectID, ti
 	return tx.Commit()
 }
 
+// AssignCapture относит запись к проекту руками.
+//
+// Модель разбирает не всё: часть записей она честно не относит никуда, часть
+// не понимает вовсе. До сих пор такие записи оставались в базе навсегда —
+// человек не мог ни поправить решение модели, ни выбросить запись. Разбор
+// руками использует ту же дорогу, что и разбор моделью: событие на проекте,
+// пометка на записи, — иначе получились бы два разных способа считаться
+// разобранным.
+func (s *Store) AssignCapture(ctx context.Context, tenant, captureID, projectID, title string) error {
+	title = strings.TrimSpace(title)
+	if title == "" {
+		return InputError{"нужен текст события"}
+	}
+	if strings.TrimSpace(projectID) == "" {
+		return InputError{"не выбран проект"}
+	}
+	var exists bool
+	if err := s.db.QueryRowContext(ctx,
+		`SELECT EXISTS (SELECT 1 FROM captures WHERE tenant_id=$1 AND id=$2)`,
+		tenant, captureID).Scan(&exists); err != nil {
+		return err
+	}
+	if !exists {
+		return ErrNotFound
+	}
+	// «Отнесено рукой» вместо ответа модели: видно, что суждение не её.
+	return s.ApplyParse(ctx, tenant, captureID, projectID, title, "update", 0, `{"by":"human"}`)
+}
+
+// DropCapture выбрасывает запись.
+//
+// Не всё написанное стоит хранить: пробы, опечатки, надиктованный мусор. Без
+// этого список неразобранного растёт и перестаёт что-либо значить — в нём
+// тонет то, что вправду ждёт решения.
+func (s *Store) DropCapture(ctx context.Context, tenant, captureID string) error {
+	res, err := s.db.ExecContext(ctx,
+		`DELETE FROM captures WHERE tenant_id = $1 AND id = $2`, tenant, captureID)
+	if err != nil {
+		return fmt.Errorf("удаление записи: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("удаление записи: %w", err)
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // FailParse помечает запись неразобранной, сохраняя причину.
 //
 // Текст при этом не трогается: разбор — это то, что можно повторить, а

@@ -369,7 +369,14 @@ export function del(path: string): Promise<Written<void>> {
  * гаснет, на карте ничего не меняется, и человек решает, что не отправилось.
  * Он пишет второй раз — и получает два одинаковых дела вместо одного.
  */
-export async function loadPending(): Promise<Array<{ id: string; text: string; state: string }>> {
+export interface LooseCapture {
+  id: string;
+  text: string;
+  state: string;
+  createdAt?: string;
+}
+
+export async function loadPending(): Promise<LooseCapture[]> {
   const cfg = await readConfig();
   if (!cfg.apiUrl) return [];
   const base = cfg.apiUrl.replace(/\/+$/, '');
@@ -377,7 +384,7 @@ export async function loadPending(): Promise<Array<{ id: string; text: string; s
     const r = await fetch(`${base}/v1/captures`, { cache: 'no-store' });
     if (!r.ok) return [];
     const body = await r.json();
-    return (body?.captures ?? []) as Array<{ id: string; text: string; state: string }>;
+    return (body?.captures ?? []) as LooseCapture[];
   } catch {
     return [];
   }

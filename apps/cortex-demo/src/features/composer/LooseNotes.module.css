@@ -1,0 +1,87 @@
+/* Стоит над композером — там же, где человек писал. */
+.root {
+  display: grid;
+  gap: 8px;
+  padding: 0 4px 6px;
+}
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: baseline;
+  font-size: 0.76rem;
+}
+.busy { color: var(--color-text-secondary); }
+.open {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--color-text-tertiary);
+  font: inherit;
+  font-size: 0.76rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.open:hover { color: var(--color-text-primary); }
+.open:focus-visible { box-shadow: var(--focus-ring); }
+
+/* Список открывается вверх и ограничен по высоте: он не должен вытеснять с
+   экрана саму карту — это подсобное место, а не второй экран. */
+.list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 6px;
+  max-height: 34vh;
+  overflow-y: auto;
+  list-style: none;
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-surface);
+}
+.item {
+  display: grid;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: var(--radius-xs);
+}
+.item:hover { background: var(--color-bg-elevated); }
+.text {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  color: var(--color-text-primary);
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: baseline;
+  font-size: 0.76rem;
+}
+.pick { display: inline-flex; gap: 8px; align-items: baseline; }
+.picked { color: var(--color-text-tertiary); }
+.pick select {
+  border: 0;
+  border-bottom: 1px solid var(--color-border-default);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: 0.76rem;
+  padding: 2px 0;
+}
+.pick select option { background: var(--color-bg-elevated); color: var(--color-text-primary); }
+.pick select:focus-visible { box-shadow: var(--focus-ring); }
+.drop {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--color-text-tertiary);
+  font: inherit;
+  font-size: 0.76rem;
+  cursor: pointer;
+}
+.drop:hover { color: var(--color-accent-orange); }
+.drop:focus-visible { box-shadow: var(--focus-ring); }
+.why { color: var(--color-text-disabled); }
+.err { margin: 0; font-family: var(--font-family-mono); font-size: 0.72rem; color: var(--color-accent-orange); }

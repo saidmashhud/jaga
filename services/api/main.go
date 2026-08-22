@@ -346,6 +346,46 @@ func main() {
 		}
 	}))
 
+	// Отнести запись к проекту руками.
+	//
+	// Модель разбирает не всё, и до сих пор её решение было окончательным:
+	// поправить его человек не мог никак. Той же дорогой, что и разбор
+	// моделью, — иначе получились бы два разных способа считаться разобранным.
+	mux.HandleFunc("POST /v1/captures/{id}/assign", guard(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			ProjectID string `json:"projectId"`
+			Title     string `json:"title"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeErr(w, http.StatusBadRequest, "неразобранное тело запроса")
+			return
+		}
+		err := s.AssignCapture(r.Context(), tenantOf(r), r.PathValue("id"), body.ProjectID, body.Title)
+		switch {
+		case store.IsInput(err):
+			writeErr(w, http.StatusBadRequest, err.Error())
+		case errors.Is(err, store.ErrNotFound):
+			writeErr(w, http.StatusNotFound, "такой записи нет")
+		case err != nil:
+			writeErr(w, http.StatusInternalServerError, err.Error())
+		default:
+			w.WriteHeader(http.StatusNoContent)
+		}
+	}))
+
+	// Выбросить запись.
+	mux.HandleFunc("DELETE /v1/captures/{id}", guard(func(w http.ResponseWriter, r *http.Request) {
+		err := s.DropCapture(r.Context(), tenantOf(r), r.PathValue("id"))
+		switch {
+		case errors.Is(err, store.ErrNotFound):
+			writeErr(w, http.StatusNotFound, "такой записи нет")
+		case err != nil:
+			writeErr(w, http.StatusInternalServerError, err.Error())
+		default:
+			w.WriteHeader(http.StatusNoContent)
+		}
+	}))
+
 	// Убрать проект.
 	//
 	// Со всем, что на нём висело: связи уходят следом по внешнему ключу. Проект
